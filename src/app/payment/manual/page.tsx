@@ -1,25 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
-import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Building2, 
-  Wallet, 
-  ChevronDown, 
-  ChevronRight, 
-  Star, 
-  Shield, 
-  CheckCircle, 
-  Phone, 
-  CreditCard, 
-  Upload, 
+import {
+  Building2,
+  Wallet,
+  ChevronDown,
+  ChevronRight,
+  Star,
+  Shield,
+  CheckCircle,
+  Phone,
+  CreditCard,
+  Upload,
   Clock,
   ArrowLeft,
   Gift,
@@ -81,7 +80,7 @@ const paymentTabs = [
 
 const banks = [
   'HBL Bank',
-  'UBL Bank', 
+  'UBL Bank',
   'MCB Bank',
   'Allied Bank',
   'Bank Alfalah',
@@ -112,9 +111,8 @@ const adminPaymentMethods = {
   'BANK_TRANSFER': { number: '1234567890123', name: 'Bank Account', bank: 'HBL Bank' }
 }
 
-export default function ManualPaymentPage() {
+function PaymentManualForm() {
   const { data: session } = useSession()
-  const searchParams = useSearchParams()
   const [selectedTier, setSelectedTier] = useState('STANDARD')
   const [formData, setFormData] = useState({
     amount: '',
@@ -145,15 +143,17 @@ export default function ManualPaymentPage() {
   }
 
   useEffect(() => {
-    const tier = searchParams.get('tier') || 'STANDARD'
+    // Get tier from URL in useEffect to avoid SSR issues
+    const urlParams = new URLSearchParams(window.location.search)
+    const tier = urlParams.get('tier') || 'STANDARD'
     if (membershipPlans[tier as keyof typeof membershipPlans]) {
       setSelectedTier(tier)
-      setFormData(prev => ({ 
-        ...prev, 
+      setFormData(prev => ({
+        ...prev,
         amount: membershipPlans[tier as keyof typeof membershipPlans].price.toString()
       }))
     }
-  }, [searchParams])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -172,13 +172,13 @@ export default function ManualPaymentPage() {
       formDataToSend.append('transactionId', formData.transactionId)
       formDataToSend.append('paymentMethod', formData.paymentMethod)
       formDataToSend.append('notes', formData.notes)
-      
+
       // Add admin account number based on payment method
       const adminMethod = adminPaymentMethods[formData.paymentMethod as keyof typeof adminPaymentMethods]
       if (adminMethod) {
         formDataToSend.append('adminAccount', adminMethod.number)
       }
-      
+
       if (formData.screenshot) {
         formDataToSend.append('screenshot', formData.screenshot)
       }
@@ -204,8 +204,8 @@ export default function ManualPaymentPage() {
       } else {
         throw new Error('Failed to submit payment request')
       }
-    } catch (error) {
-      console.error('Error submitting payment:', error)
+    } catch (_error) {
+      console.error('Error submitting payment:', _error)
       alert('Failed to submit payment request. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -270,7 +270,7 @@ export default function ManualPaymentPage() {
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => window.history.back()}
               className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
             >
@@ -319,13 +319,13 @@ export default function ManualPaymentPage() {
         {/* Payment Method Tabs */}
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 px-1">Choose Payment Method</h3>
-          
+
           {/* Tab Headers */}
           <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
             {paymentTabs.map((tab) => {
               const TabIcon = tab.icon
               const isActive = activeTab === tab.id
-              
+
               return (
                 <button
                   key={tab.id}
@@ -336,8 +336,8 @@ export default function ManualPaymentPage() {
                     setFormData(prev => ({ ...prev, paymentMethod: '' }))
                   }}
                   className={`flex-shrink-0 p-4 rounded-2xl border-2 transition-all duration-300 min-w-[120px] ${
-                    isActive 
-                      ? 'border-green-500 bg-green-50 shadow-md' 
+                    isActive
+                      ? 'border-green-500 bg-green-50 shadow-md'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
@@ -386,7 +386,7 @@ export default function ManualPaymentPage() {
                     ))}
                   </select>
                 </div>
-                
+
                 {selectedBank && (
                   <div className="space-y-4">
                     <div>
@@ -538,8 +538,8 @@ export default function ManualPaymentPage() {
                   {activeTab === 'bank' ? selectedBank : selectedMethod?.name}
                 </h4>
                 <p className="text-green-100 text-xs">
-                  {activeTab === 'bank' ? 'Bank Transfer' : 
-                   activeTab === 'raast' ? 'Instant Payment System' : 
+                  {activeTab === 'bank' ? 'Bank Transfer' :
+                   activeTab === 'raast' ? 'Instant Payment System' :
                    'Digital Wallet'}
                 </p>
               </div>
@@ -554,7 +554,7 @@ export default function ManualPaymentPage() {
             <h3 className="font-semibold text-gray-900 text-lg">Payment Details</h3>
             <p className="text-sm text-gray-600 mt-1">Fill in your payment information</p>
           </div>
-          
+
           <div className="p-4">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Amount and Payment Method */}
@@ -752,5 +752,22 @@ export default function ManualPaymentPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ManualPaymentPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading payment page...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <PaymentManualForm />
+    </Suspense>
   )
 }
