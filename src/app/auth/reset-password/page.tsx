@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,10 +16,12 @@ export default function ResetPasswordPage() {
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token');
 
   useEffect(() => {
+    // Get token from URL in useEffect to avoid SSR issues
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
     if (!token) {
       setError('Invalid reset link. Please request a new password reset.');
       setTokenValid(false);
@@ -41,14 +43,14 @@ export default function ResetPasswordPage() {
           setTokenValid(false);
           setError('This reset link has expired or is invalid. Please request a new password reset.');
         }
-      } catch (error) {
+      } catch (_error) {
         setTokenValid(false);
         setError('Unable to verify reset link. Please try again.');
       }
     };
 
     verifyToken();
-  }, [token]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +74,9 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
 
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -259,5 +264,22 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
