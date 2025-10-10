@@ -1,0 +1,68 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#gradient2)"/>
+  
+  <!-- Team network structure -->
+  <g transform="translate(200, 150)">
+    <!-- Center person (leader) -->
+    <circle cx="0" cy="0" r="20" fill="#3B82F6"/>
+    <circle cx="0" cy="-5" r="8" fill="white"/>
+    <rect x="-8" y="3" width="16" height="12" rx="8" fill="white"/>
+    
+    <!-- Level 1 team members -->
+    <g transform="translate(-80, -60)">
+      <circle cx="0" cy="0" r="15" fill="#10B981"/>
+      <circle cx="0" cy="-3" r="6" fill="white"/>
+      <rect x="-6" y="3" width="12" height="9" rx="6" fill="white"/>
+    </g>
+    
+    <g transform="translate(80, -60)">
+      <circle cx="0" cy="0" r="15" fill="#10B981"/>
+      <circle cx="0" cy="-3" r="6" fill="white"/>
+      <rect x="-6" y="3" width="12" height="9" rx="6" fill="white"/>
+    </g>
+    
+    <!-- Level 2 team members -->
+    <g transform="translate(-120, 60)">
+      <circle cx="0" cy="0" r="12" fill="#8B5CF6"/>
+      <circle cx="0" cy="-2" r="5" fill="white"/>
+      <rect x="-5" y="3" width="10" height="7" rx="5" fill="white"/>
+    </g>
+    
+    <g transform="translate(0, 80)">
+      <circle cx="0" cy="0" r="12" fill="#8B5CF6"/>
+      <circle cx="0" cy="-2" r="5" fill="white"/>
+      <rect x="-5" y="3" width="10" height="7" rx="5" fill="white"/>
+    </g>
+    
+    <g transform="translate(120, 60)">
+      <circle cx="0" cy="0" r="12" fill="#8B5CF6"/>
+      <circle cx="0" cy="-2" r="5" fill="white"/>
+      <rect x="-5" y="3" width="10" height="7" rx="5" fill="white"/>
+    </g>
+    
+    <!-- Connection lines -->
+    <line x1="0" y1="0" x2="-80" y2="-60" stroke="#6B7280" stroke-width="2"/>
+    <line x1="0" y1="0" x2="80" y2="-60" stroke="#6B7280" stroke-width="2"/>
+    <line x1="-80" y1="-60" x2="-120" y2="60" stroke="#6B7280" stroke-width="1.5"/>
+    <line x1="0" y1="0" x2="0" y2="80" stroke="#6B7280" stroke-width="1.5"/>
+    <line x1="80" y1="-60" x2="120" y2="60" stroke="#6B7280" stroke-width="1.5"/>
+  </g>
+  
+  <!-- Success indicators -->
+  <rect x="30" y="30" width="120" height="40" rx="20" fill="white" opacity="0.9"/>
+  <text x="50" y="45" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#3B82F6">Team Building</text>
+  <text x="50" y="60" font-family="Arial, sans-serif" font-size="10" fill="#6B7280">Success Guide</text>
+  
+  <!-- Growth arrow -->
+  <path d="M320 250 L360 210" stroke="#10B981" stroke-width="3" fill="none"/>
+  <path d="M355 215 L360 210 L365 215" stroke="#10B981" stroke-width="3" fill="none"/>
+  
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F3E8FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E0E7FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

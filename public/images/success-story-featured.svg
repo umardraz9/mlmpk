@@ -1,0 +1,40 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#gradient1)"/>
+  
+  <!-- Success Chart -->
+  <rect x="50" y="80" width="300" height="150" rx="8" fill="white" opacity="0.9"/>
+  
+  <!-- Chart bars -->
+  <rect x="70" y="160" width="20" height="40" fill="#10B981"/>
+  <rect x="110" y="140" width="20" height="60" fill="#10B981"/>
+  <rect x="150" y="120" width="20" height="80" fill="#10B981"/>
+  <rect x="190" y="100" width="20" height="100" fill="#10B981"/>
+  <rect x="230" y="80" width="20" height="120" fill="#10B981"/>
+  <rect x="270" y="60" width="20" height="140" fill="#10B981"/>
+  <rect x="310" y="40" width="20" height="160" fill="#10B981"/>
+  
+  <!-- Success icon -->
+  <circle cx="320" cy="60" r="15" fill="#F59E0B"/>
+  <path d="M315 60 L318 63 L325 56" stroke="white" stroke-width="2" fill="none"/>
+  
+  <!-- Money symbols -->
+  <text x="60" y="50" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#10B981">PKR</text>
+  <text x="100" y="50" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#059669">50,000</text>
+  
+  <!-- Trend arrow -->
+  <path d="M280 100 L320 60" stroke="#10B981" stroke-width="3" fill="none"/>
+  <path d="M315 65 L320 60 L325 65" stroke="#10B981" stroke-width="3" fill="none"/>
+  
+  <!-- Person silhouette -->
+  <circle cx="80" cy="250" r="12" fill="#6B7280"/>
+  <rect x="68" y="262" width="24" height="30" rx="12" fill="#6B7280"/>
+  
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#EEF2FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DBEAFE;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

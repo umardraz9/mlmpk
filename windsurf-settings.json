@@ -1,0 +1,49 @@
+{
+  "// Windsurf IDE Performance Settings": "Copy these to your Windsurf settings",
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.autoImports": false,
+  "typescript.updateImportsOnFileMove.enabled": "never",
+  "typescript.preferences.includeCompletionsWithSnippetText": false,
+  "typescript.suggest.completeFunctionCalls": false,
+  "editor.quickSuggestions": {
+    "other": false,
+    "comments": false,
+    "strings": false
+  },
+  "editor.parameterHints.enabled": false,
+  "editor.hover.enabled": false,
+  "editor.suggest.showKeywords": false,
+  "editor.suggest.showSnippets": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/out/**": true,
+    "**/.vercel/**": true,
+    "**/build/**": true,
+    "**/*.log": true,
+    "**/*.sqlite": true,
+    "**/*.db": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/out": true,
+    "**/.vercel": true,
+    "**/build": true,
+    "**/*.log": true
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass"]
+    }
+  },
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "workbench.startupEditor": "none",
+  "git.autorefresh": false,
+  "git.autofetch": false
+}

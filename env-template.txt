@@ -1,0 +1,19 @@
+# Copy this content to .env.local file manually
+# Performance optimizations for Windsurf
+NEXT_TELEMETRY_DISABLED=1
+DISABLE_ESLINT_PLUGIN=true
+FAST_REFRESH=false
+
+# Node.js memory optimization
+NODE_OPTIONS=--max-old-space-size=4096
+
+# Database URL (if not already set)
+DATABASE_URL="file:./dev.db"
+
+# NextAuth configuration (add your values)
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="mcnmart-development-secret-key-2024"
+
+# Admin credentials for testing
+ADMIN_EMAIL="admin@mcnmart.com"
+ADMIN_PASSWORD="admin123"

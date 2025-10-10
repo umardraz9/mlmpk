@@ -1,0 +1,64 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lifestyleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6D28D9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#lifestyleGradient)"/>
+  
+  <!-- Person silhouette -->
+  <circle cx="200" cy="100" r="25" fill="white" opacity="0.9"/>
+  <rect x="175" y="125" width="50" height="80" rx="25" fill="white" opacity="0.9"/>
+  
+  <!-- Laptop -->
+  <rect x="160" y="140" width="80" height="50" rx="4" fill="#1F2937"/>
+  <rect x="165" y="145" width="70" height="40" rx="2" fill="#111827"/>
+  <ellipse cx="200" cy="190" rx="40" ry="5" fill="#374151"/>
+  
+  <!-- Screen glow -->
+  <rect x="170" y="150" width="60" height="30" rx="2" fill="#3B82F6" opacity="0.3"/>
+  
+  <!-- Screen content -->
+  <rect x="175" y="155" width="50" height="3" rx="1.5" fill="#10B981"/>
+  <rect x="175" y="162" width="30" height="2" rx="1" fill="#E5E7EB"/>
+  <rect x="175" y="167" width="40" height="2" rx="1" fill="#E5E7EB"/>
+  <rect x="175" y="172" width="25" height="2" rx="1" fill="#E5E7EB"/>
+  
+  <!-- Floating devices -->
+  <!-- Smartphone -->
+  <rect x="100" y="80" width="25" height="45" rx="6" fill="white" opacity="0.9" transform="rotate(-15 112.5 102.5)"/>
+  <rect x="103" y="85" width="19" height="35" rx="2" fill="#111827" transform="rotate(-15 112.5 102.5)"/>
+  
+  <!-- Tablet -->
+  <rect x="280" y="120" width="40" height="60" rx="8" fill="white" opacity="0.9" transform="rotate(20 300 150)"/>
+  <rect x="285" y="125" width="30" height="50" rx="4" fill="#111827" transform="rotate(20 300 150)"/>
+  
+  <!-- Coffee cup -->
+  <ellipse cx="120" cy="200" rx="12" ry="8" fill="white" opacity="0.9"/>
+  <ellipse cx="120" cy="198" rx="10" ry="6" fill="#92400E"/>
+  <rect x="115" y="190" width="3" height="15" rx="1.5" fill="white" opacity="0.9"/>
+  
+  <!-- Clock -->
+  <circle cx="300" cy="80" r="20" fill="white" opacity="0.9"/>
+  <circle cx="300" cy="80" r="15" fill="#374151"/>
+  <path d="M300 70L300 80L310 80" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- WiFi signals -->
+  <path d="M80 150C85 145 95 145 100 150" stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+  <path d="M82 155C86 152 94 152 98 155" stroke="white" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M84 160C87 158 93 158 96 160" stroke="white" stroke-width="2" fill="none" opacity="0.4"/>
+  <circle cx="90" cy="165" r="2" fill="white" opacity="0.8"/>
+  
+  <!-- Balance symbols -->
+  <circle cx="320" cy="200" r="15" fill="#F59E0B" opacity="0.8"/>
+  <path d="M315 195L325 195M320 190L320 200M315 200L325 200" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Productivity arrows -->
+  <path d="M60 120L80 100" stroke="#10B981" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <path d="M75 105L80 100L75 95" stroke="#10B981" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.8"/>
+  
+  <!-- Text */}
+  <text x="200" y="250" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">Digital Lifestyle</text>
+  <text x="200" y="270" font-family="Arial, sans-serif" font-size="12" fill="#E9D5FF" text-anchor="middle">Work-Life Balance</text>
+</svg>

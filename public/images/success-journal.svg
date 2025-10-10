@@ -1,0 +1,58 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6D28D9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#purpleGradient)"/>
+  
+  <!-- Journal/Book -->
+  <rect x="140" y="80" width="120" height="140" rx="8" fill="#1F2937"/>
+  <rect x="145" y="85" width="110" height="130" rx="4" fill="white"/>
+  
+  <!-- Binding -->
+  <rect x="140" y="80" width="8" height="140" fill="#374151"/>
+  <circle cx="144" cy="100" r="2" fill="#6B7280"/>
+  <circle cx="144" cy="120" r="2" fill="#6B7280"/>
+  <circle cx="144" cy="140" r="2" fill="#6B7280"/>
+  <circle cx="144" cy="160" r="2" fill="#6B7280"/>
+  <circle cx="144" cy="180" r="2" fill="#6B7280"/>
+  <circle cx="144" cy="200" r="2" fill="#6B7280"/>
+  
+  <!-- Page content -->
+  <rect x="155" y="100" width="80" height="4" rx="2" fill="#8B5CF6"/>
+  <rect x="155" y="110" width="60" height="3" rx="1.5" fill="#D1D5DB"/>
+  <rect x="155" y="118" width="70" height="3" rx="1.5" fill="#D1D5DB"/>
+  <rect x="155" y="126" width="50" height="3" rx="1.5" fill="#D1D5DB"/>
+  
+  <!-- Checkmarks -->
+  <circle cx="160" cy="140" r="6" fill="#10B981"/>
+  <path d="M157 140L159 142L163 138" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <circle cx="160" cy="155" r="6" fill="#10B981"/>
+  <path d="M157 155L159 157L163 153" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <circle cx="160" cy="170" r="6" fill="#10B981"/>
+  <path d="M157 170L159 172L163 168" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Goal text -->
+  <rect x="175" y="137" width="40" height="3" rx="1.5" fill="#D1D5DB"/>
+  <rect x="175" y="152" width="35" height="3" rx="1.5" fill="#D1D5DB"/>
+  <rect x="175" y="167" width="45" height="3" rx="1.5" fill="#D1D5DB"/>
+  
+  <!-- Stars around -->
+  <path d="M100 120L102 126L108 126L103 130L105 136L100 132L95 136L97 130L92 126L98 126Z" fill="#F59E0B" opacity="0.8"/>
+  <path d="M310 140L312 146L318 146L313 150L315 156L310 152L305 156L307 150L302 146L308 146Z" fill="#F59E0B" opacity="0.8"/>
+  <path d="M320 100L321 104L325 104L322 107L323 111L320 109L317 111L318 107L315 104L319 104Z" fill="#F59E0B" opacity="0.6"/>
+  
+  <!-- Trophy -->
+  <circle cx="80" cy="180" r="20" fill="#F59E0B" opacity="0.9"/>
+  <path d="M75 175H85V185H80V190H75V185H70V175H75Z" fill="white"/>
+  <rect x="77" y="190" width="6" height="8" fill="white"/>
+  <rect x="75" y="198" width="10" height="3" fill="white"/>
+  
+  <!-- Text -->
+  <text x="200" y="250" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Success Journal</text>
+  <text x="200" y="270" font-family="Arial, sans-serif" font-size="14" fill="#E9D5FF" text-anchor="middle">Goal Tracker</text>
+</svg>

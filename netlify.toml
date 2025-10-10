@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[context.production.environment]
+  NEXTAUTH_URL = "https://mcnmart-admin.netlify.app"
+  NEXTAUTH_SECRET = "your-nextauth-secret-key"
+
+[context.deploy-preview.environment]
+  NEXTAUTH_URL = "https://deploy-preview-{deploy_id}--mcnmart-admin.netlify.app"

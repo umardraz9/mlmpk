@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* UX: Smooth scrolling and focus styles */
+html { scroll-behavior: smooth; }
+:focus-visible { outline: 2px solid #059669; outline-offset: 2px; }
+
+/* Skip link (WCAG) */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus {
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  padding: 0.75rem 1rem;
+  background: #059669;
+  color: #fff;
+  z-index: 10000;
+  border-bottom-right-radius: .5rem;
+}
+
+/* Critical CSS - Above the fold */
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Dark mode variables */
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 17, 24, 39;
+  --background-end-rgb: 31, 41, 55;
+}
+
+/* Critical layout styles */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-inter);
+  font-display: swap;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Global dark mode styles */
+.dark body {
+  background-color: rgb(17, 24, 39);
+  color: rgb(243, 244, 246);
+}
+
+/* Optimized transitions - only for interactive elements */
+button, a, input, select {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* Critical utility classes */
+.text-primary { color: #059669; }
+.bg-primary { background-color: #059669; }
+.border-primary { border-color: #059669; }
+
+/* Optimized scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #059669; border-radius: 3px; }
+
+/* Dark mode scrollbar */
+
+/* Mobile fullscreen support */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh !important;
+  }
+}
+
+/* Safe area insets for mobile devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Mobile viewport fixes */
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Touch optimization */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent zoom on input focus */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    font-size: 16px;
+  }
+}
+.dark ::-webkit-scrollbar-track { background: #374151; }
+.dark ::-webkit-scrollbar-thumb { background: #059669; }
+
+/* Global dark mode component styles */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgb(55, 65, 81);
+  border-color: rgb(75, 85, 99);
+  color: rgb(243, 244, 246);
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: rgb(5, 150, 105);
+  box-shadow: 0 0 0 1px rgb(5, 150, 105);
+}
+
+/* Dark mode for cards and containers */
+.dark .bg-white {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+/* Dark mode text colors */
+.dark .text-gray-900 {
+  color: rgb(243, 244, 246) !important;
+}
+
+.dark .text-gray-800 {
+  color: rgb(229, 231, 235) !important;
+}
+
+.dark .text-gray-700 {
+  color: rgb(209, 213, 219) !important;
+}
+
+.dark .text-gray-600 {
+  color: rgb(156, 163, 175) !important;
+}
+
+.dark .text-gray-500 {
+  color: rgb(107, 114, 128) !important;
+}
+
+/* Dark mode borders */
+.dark .border-gray-200 {
+  border-color: rgb(75, 85, 99) !important;
+}
+
+.dark .border-gray-300 {
+  border-color: rgb(107, 114, 128) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+/* Custom styles for Partnership Program */
+.hover\:bg-primary:hover {
+  background-color: #047857; /* green-700 */
+}
+
+/* Pakistani theme colors */
+.text-pakistan-green {
+  color: #01411C;
+}
+
+.bg-pakistan-green {
+  background-color: #01411C;
+}
+
+.text-pakistan-flag {
+  color: #006633;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar-thumb:hover {
+  background: #047857;
+}
