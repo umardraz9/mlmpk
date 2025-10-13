@@ -7,6 +7,9 @@ FROM base AS deps
 RUN apt-get update && apt-get install -y \
     openssl \
     ca-certificates \
+    python3 \
+    make \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -14,8 +17,14 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Configure npm for better reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-timeout 300000
+
+# Install dependencies with retries and verbose logging
+RUN npm install --legacy-peer-deps --verbose || \
+    (npm cache clean --force && npm install --legacy-peer-deps --verbose)
 
 # Rebuild the source code only when needed
 FROM base AS builder
