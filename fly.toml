@@ -7,8 +7,6 @@ app = 'mlmpk-cool-shadow-1738'
 primary_region = 'iad'
 
 [build]
-  builder = "paketobuildpacks/builder:base"
-  buildpacks = ["gcr.io/paketo-buildpacks/nodejs"]
 
 [env]
   HOSTNAME = '0.0.0.0'
