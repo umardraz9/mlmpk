@@ -1,16 +1,21 @@
 # Dockerfile for Next.js App on Fly.io
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+# Install OpenSSL and other required libraries
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies with legacy peer deps flag to avoid conflicts
-RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+# Install dependencies
+RUN npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -30,13 +35,20 @@ RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
+
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 nextjs
 
 # Copy necessary files
 COPY --from=builder /app/public ./public
