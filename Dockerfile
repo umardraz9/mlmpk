@@ -8,13 +8,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci
+
+# Install dependencies with legacy peer deps flag to avoid conflicts
+RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Set dummy DATABASE_URL for build (Prisma needs it to generate client)
+ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy"
 
 # Generate Prisma Client
 RUN npx prisma generate
