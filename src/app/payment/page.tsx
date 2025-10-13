@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -49,10 +49,32 @@ interface PaymentInfo {
 }
 
 export default function PaymentPage() {
+  return (
+    <Suspense fallback={<SearchParamsLoading />}>
+      <PaymentPageContent />
+    </Suspense>
+  );
+}
+
+// Loading component for Suspense fallback
+function SearchParamsLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-green-600 mb-4" />
+        <p className="text-gray-600">Loading payment information...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component that uses useSearchParams
+function PaymentPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get('plan');
+  
   
   const [membershipPlan, setMembershipPlan] = useState<MembershipPlan | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
