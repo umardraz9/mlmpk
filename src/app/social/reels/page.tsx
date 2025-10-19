@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -30,7 +30,7 @@ interface ReelPost {
   createdAt?: string | Date;
 }
 
-export default function ReelsPage() {
+function ReelsPageContent() {
   const { data: session } = useSession();
   const [reels, setReels] = useState<ReelPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1121,5 +1121,13 @@ export default function ReelsPage() {
       {/* Sentinel for infinite scroll */}
       <div ref={loadMoreRef} className="h-1 w-full" />
     </div>
+  );
+}
+
+export default function ReelsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <ReelsPageContent />
+    </Suspense>
   );
 }
