@@ -1,0 +1,3 @@
+Force complete rebuild with new DATABASE_URL
+Timestamp: 2025-10-20 23:59:00
+Build ID: FRESH_ENV_VARS_001
