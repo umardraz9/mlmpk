@@ -5,9 +5,6 @@ const nextConfig = {
   poweredByHeader: false,
   generateEtags: true,
   
-  // Enable standalone output for Docker/Fly.io deployment
-  output: 'standalone',
-  
   // Production optimizations
   productionBrowserSourceMaps: false,
   
