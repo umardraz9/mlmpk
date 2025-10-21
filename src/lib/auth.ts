@@ -1,17 +1,18 @@
 // NextAuth.js Configuration for MCNmart Platform
 // Authentication setup with Pakistani market considerations
 
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
+// import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import FacebookProvider from 'next-auth/providers/facebook';
 import bcrypt from 'bcryptjs';
-import prisma from '@/lib/prisma';
+import { supabaseAuth } from '@/lib/supabase-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { User as NextAuthUser } from 'next-auth';
 
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+  // Remove Prisma adapter to avoid database connection issues
+  // adapter: PrismaAdapter(prisma),
   providers: [
     // Credentials Provider for email/password login
     CredentialsProvider({
@@ -30,17 +31,15 @@ export const authOptions = {
         const password = String(credentials.password);
 
         try {
-          // Find user in database (normalize email)
-          const user = await prisma.user.findUnique({
-            where: { email },
-          });
+          // Find user in database using Supabase (normalize email)
+          const user = await supabaseAuth.findUserByEmail(email);
 
           if (!user || !user.password) {
             throw new Error('Invalid email or password');
           }
 
           // Verify password
-          const isValid = await bcrypt.compare(password, user.password);
+          const isValid = await supabaseAuth.verifyPassword(password, user.password);
           if (!isValid) {
             throw new Error('Invalid email or password');
           }
