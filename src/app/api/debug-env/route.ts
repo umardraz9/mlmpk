@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    const dbPoolUrl = process.env.DB_POOL_URL || process.env.DATABASE_URL;
     const databaseUrl = process.env.DATABASE_URL;
     const directUrl = process.env.DIRECT_URL;
     
@@ -22,8 +23,8 @@ export async function GET() {
     let dbPort: string | null = null;
     let dbName: string | null = null;
     try {
-      if (databaseUrl) {
-        const parsed = new URL(databaseUrl);
+      if (dbPoolUrl) {
+        const parsed = new URL(dbPoolUrl);
         dbUser = parsed.username || null;
         dbHost = parsed.hostname || null;
         dbPort = parsed.port || null;
@@ -36,6 +37,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       environment: {
+        DB_POOL_URL: maskUrl(process.env.DB_POOL_URL),
         DATABASE_URL: maskUrl(databaseUrl),
         DIRECT_URL: maskUrl(directUrl),
         NODE_ENV: process.env.NODE_ENV,
@@ -43,11 +45,12 @@ export async function GET() {
         VERCEL_ENV: process.env.VERCEL_ENV
       },
       analysis: {
+        hasDbPoolUrl: !!process.env.DB_POOL_URL,
         hasDatabaseUrl: !!databaseUrl,
         hasDirectUrl: !!directUrl,
-        databaseUrlType: databaseUrl?.includes('pooler') ? 'pooler' : 
-                        databaseUrl?.includes('db.') ? 'direct' : 'unknown',
-        port: databaseUrl?.match(/:(\d+)\//)?.[1] || 'unknown',
+        databaseUrlType: dbPoolUrl?.includes('pooler') ? 'pooler' : 
+                        dbPoolUrl?.includes('db.') ? 'direct' : 'unknown',
+        port: dbPoolUrl?.match(/:(\d+)\//)?.[1] || 'unknown',
         dbUser,
         dbHost,
         dbPort,
