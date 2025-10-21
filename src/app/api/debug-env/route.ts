@@ -15,6 +15,23 @@ export async function GET() {
       if (!url) return 'undefined';
       return url.replace(/:([^@]+)@/, ':***@');
     };
+    
+    // Parse connection details (safe fields only)
+    let dbUser: string | null = null;
+    let dbHost: string | null = null;
+    let dbPort: string | null = null;
+    let dbName: string | null = null;
+    try {
+      if (databaseUrl) {
+        const parsed = new URL(databaseUrl);
+        dbUser = parsed.username || null;
+        dbHost = parsed.hostname || null;
+        dbPort = parsed.port || null;
+        dbName = (parsed.pathname || '').replace(/^\//, '') || null;
+      }
+    } catch (_) {
+      // ignore parse errors
+    }
 
     return NextResponse.json({
       success: true,
@@ -30,7 +47,11 @@ export async function GET() {
         hasDirectUrl: !!directUrl,
         databaseUrlType: databaseUrl?.includes('pooler') ? 'pooler' : 
                         databaseUrl?.includes('db.') ? 'direct' : 'unknown',
-        port: databaseUrl?.match(/:(\d+)\//)?.[1] || 'unknown'
+        port: databaseUrl?.match(/:(\d+)\//)?.[1] || 'unknown',
+        dbUser,
+        dbHost,
+        dbPort,
+        dbName
       }
     });
 
