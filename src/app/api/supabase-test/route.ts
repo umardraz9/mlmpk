@@ -14,8 +14,8 @@ export async function GET() {
     
     // Test connection with a simple query
     const { data, error } = await supabase
-      .from('User')
-      .select('count')
+      .from('users')
+      .select('*')
       .limit(1);
     
     if (error) {

@@ -14,7 +14,7 @@ export async function GET() {
     
     // Check if admin already exists
     const { data: existingAdmin, error: checkError } = await supabase
-      .from('User')
+      .from('users')
       .select('*')
       .eq('email', 'admin@mlmpk.com')
       .single();
@@ -35,7 +35,7 @@ export async function GET() {
     const hashedPassword = await bcrypt.hash('admin123', 10);
     
     const { data: admin, error: createError } = await supabase
-      .from('User')
+      .from('users')
       .insert({
         name: 'Admin User',
         email: 'admin@mlmpk.com',
