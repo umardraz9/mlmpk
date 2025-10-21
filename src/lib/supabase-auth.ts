@@ -29,13 +29,68 @@ export const supabaseAuth = {
     }
   },
 
-  // Verify password
+  // Verify password with detailed logging
   async verifyPassword(password: string, hashedPassword: string) {
     try {
-      return await bcrypt.compare(password, hashedPassword);
+      console.log('Verifying password:', { 
+        passwordLength: password.length, 
+        hashLength: hashedPassword.length,
+        hashPrefix: hashedPassword.substring(0, 10)
+      });
+      
+      const result = await bcrypt.compare(password, hashedPassword);
+      console.log('Password verification result:', result);
+      return result;
     } catch (error) {
       console.error('Error verifying password:', error);
       return false;
+    }
+  },
+
+  // Create a fresh admin user with proper hash
+  async createFreshAdmin() {
+    try {
+      // Delete existing admin
+      await supabase.from('users').delete().eq('email', 'admin@mlmpk.com');
+      
+      // Create fresh hash
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      console.log('Created fresh hash:', hashedPassword);
+      
+      // Verify hash immediately
+      const testResult = await bcrypt.compare('admin123', hashedPassword);
+      console.log('Hash test result:', testResult);
+      
+      if (!testResult) {
+        throw new Error('Hash verification failed immediately after creation');
+      }
+      
+      // Create user
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          name: 'Admin User',
+          email: 'admin@mlmpk.com',
+          password: hashedPassword,
+          role: 'ADMIN',
+          isAdmin: true,
+          referralCode: 'ADMIN001',
+          username: 'admin',
+          isActive: true,
+          tasksEnabled: true,
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating admin:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in createFreshAdmin:', error);
+      return null;
     }
   },
 
