@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
@@ -23,34 +22,29 @@ export default function LoginForm() {
     setError('');
 
     try {
-      const result = await signIn('credentials', {
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        redirect: false,
+      const response = await fetch('/api/working-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+        }),
       });
 
-      if (result?.error) {
-        // Map NextAuth error codes/messages to friendly text
-        const msg = (() => {
-          const code = result.error;
-          if (!code) return '';
-          if (code === 'CredentialsSignin') return 'Invalid email or password. Please try again.';
-          if (code === 'OAuthAccountNotLinked') return 'Email is already linked to a different login method. Please use the original method or reset your password.';
-          if (code.toLowerCase().includes('invalid') && code.toLowerCase().includes('password')) return 'Invalid email or password. Please try again.';
-          return code; // fall back to whatever we received
-        })();
-        setError(msg || 'Login failed. Please try again.');
-        setIsLoading(false);
-      } else if (result?.ok) {
-        router.push('/dashboard');
+      const data = await response.json();
+
+      if (data.success) {
+        // Redirect to the appropriate dashboard
+        router.push(data.redirectUrl || '/dashboard');
       } else {
-        // Handle case where result is undefined or missing properties
-        setError('Login failed. Please try again.');
-        setIsLoading(false);
+        setError(data.error || 'Login failed. Please try again.');
       }
     } catch (error) {
       console.error('Login error:', error);
       setError('An unexpected error occurred. Please try again later.');
+    } finally {
       setIsLoading(false);
     }
   };
