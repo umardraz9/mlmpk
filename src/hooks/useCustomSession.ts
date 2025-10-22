@@ -45,6 +45,15 @@ export function useCustomSession(): CustomSession {
           cookie.trim().startsWith('mlmpk-session=')
         );
 
+        // Debug logging for production
+        if (process.env.NODE_ENV === 'production') {
+          console.log('🔍 Session Debug:', {
+            allCookies: document.cookie,
+            foundSessionCookie: !!sessionCookie,
+            cookieCount: cookies.length
+          });
+        }
+
         if (!sessionCookie) {
           setSession({ data: null, status: 'unauthenticated' });
           return;

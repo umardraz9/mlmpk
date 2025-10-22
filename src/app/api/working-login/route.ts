@@ -47,10 +47,10 @@ export async function POST(request: Request) {
       loginTime: new Date().toISOString()
     };
     
-    // Set session cookie
+    // Set session cookie (accessible to JavaScript for client-side session management)
     const cookieStore = await cookies();
     cookieStore.set('mlmpk-session', JSON.stringify(sessionData), {
-      httpOnly: true,
+      httpOnly: false, // Allow JavaScript access for client-side session reading
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 24 * 60 * 60, // 24 hours
