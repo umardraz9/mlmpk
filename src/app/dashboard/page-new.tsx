@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -40,7 +40,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { signOut } from 'next-auth/react';
+import { signOut } from '@/hooks/useSession';
 
 interface UserStats {
   totalEarnings: number;

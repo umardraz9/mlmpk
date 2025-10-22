@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useMemo, useState, Suspense } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn  } from '@/hooks/useSession';
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

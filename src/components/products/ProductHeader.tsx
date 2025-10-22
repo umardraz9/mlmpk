@@ -2,7 +2,7 @@
 
 import React, { memo } from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import { Heart, ShoppingCart, Package, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';

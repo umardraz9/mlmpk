@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { motion } from 'framer-motion';
 import { 
   Sparkles, Check, ArrowRight, TrendingUp, Gift, 

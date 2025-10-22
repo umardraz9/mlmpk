@@ -4,6 +4,7 @@ const path = require('path');
 
 // List of files that need to be updated (from grep results)
 const filesToUpdate = [
+  // Already updated files
   'src/hooks/useNotifications.ts',
   'src/components/Wallet.tsx',
   'src/app/withdraw/page.tsx',
@@ -32,7 +33,37 @@ const filesToUpdate = [
   'src/components/social/MediaModal.tsx',
   'src/components/social/ModernCreatePost.tsx',
   'src/components/social/ModernPostCard.tsx',
-  'src/components/social/ModernSocialHeader.tsx'
+  'src/components/social/ModernSocialHeader.tsx',
+  
+  // Additional files found
+  'src/app/checkout/page.tsx',
+  'src/components/social/VirtualizedFeed.tsx',
+  'src/components/social/RealTimeNotifications.tsx',
+  'src/components/social/OptimizedSocialHeader.tsx',
+  'src/components/social/OptimizedRealTimeFeed.tsx',
+  'src/components/social/RealTimeFeed.tsx',
+  'src/components/ProductHeader.tsx',
+  'src/components/products/ProductHeader.tsx',
+  'src/components/notifications/NotificationCenter.tsx',
+  'src/components/layout/header.tsx',
+  'src/components/layout/FacebookHeader.tsx',
+  'src/components/EnhancedMessageComponent.tsx',
+  'src/app/favorites/page.tsx',
+  'src/app/membership/renew/page.tsx',
+  'src/app/social/people/page.tsx',
+  'src/app/social/reels/page.tsx',
+  'src/app/payment/page.tsx',
+  'src/app/payment/manual/page.tsx',
+  'src/app/partnership/page.tsx',
+  'src/app/order-confirmation/page.tsx',
+  'src/app/orders/[id]/review/page.tsx',
+  'src/app/membership/page.tsx',
+  'src/app/messages-enhanced/page.tsx',
+  'src/app/messages-complete/page.tsx',
+  'src/app/messages/page-optimized.tsx',
+  'src/app/orders/[id]/track/page.tsx',
+  'src/app/messages/page-fallback.tsx',
+  'src/app/messages/mobile-page.tsx'
 ];
 
 function updateFile(filePath) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import React, { Suspense, useEffect, useCallback, lazy } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';

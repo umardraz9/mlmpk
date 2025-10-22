@@ -10,5 +10,13 @@ export const useSession = useCustomSession;
 // Export signOut for compatibility
 export const signOut = customSignOut;
 
+// Export signIn for compatibility (redirects to login page)
+export const signIn = (provider?: string, options?: { callbackUrl?: string }) => {
+  if (typeof window !== 'undefined') {
+    const redirectUrl = options?.callbackUrl || '/auth/login';
+    window.location.href = redirectUrl;
+  }
+};
+
 // Re-export everything from the custom session
 export * from './useCustomSession';

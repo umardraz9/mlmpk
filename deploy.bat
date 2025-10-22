@@ -1,13 +1,13 @@
 @echo off
-echo 🚀 Deploying MLM Platform Authentication Fixes...
+echo 🚀 Deploying Vercel Build Fixes...
 echo.
 
 echo 📝 Committing changes to Git...
-git commit -m "Fix authentication issues - Replace NextAuth with custom session management"
+git commit -m "Fix Vercel build errors - Add server session functions and browser environment checks"
 
 echo.
 echo 📤 Pushing to GitHub...
-git push origin main
+git push origin master
 
 echo.
 echo ✅ Deployment to GitHub complete!

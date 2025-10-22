@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn, getSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, Shield, LogIn, ArrowLeft, Users, BarChart3, Settings, Database } from 'lucide-react';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import dynamic from 'next/dynamic';
 import { useEventSource } from '@/lib/EventSourceManager';
 import { debounce, throttle } from '@/lib/performance-utils';

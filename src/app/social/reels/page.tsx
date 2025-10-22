@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
-import { useSession } from "next-auth/react";
+import { useSession  } from '@/hooks/useSession';
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";

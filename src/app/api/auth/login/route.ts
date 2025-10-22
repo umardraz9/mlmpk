@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { signIn } from 'next-auth/react';
+import { signIn } from '@/hooks/useSession';
 
 // This endpoint is for custom login handling if needed
 // The main authentication should go through NextAuth at /api/auth/[...nextauth]

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { Check, Star, Crown, Shield, ArrowRight, Users, DollarSign, Calendar, Gift, AlertTriangle, CheckCircle, X } from 'lucide-react';
 
 interface MembershipPlan {

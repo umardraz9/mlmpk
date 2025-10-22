@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import { Activity, TrendingUp, Clock, Layers, Timer, BarChart3, AlertCircle, CheckCircle } from 'lucide-react';
 import { useWebVitals } from '@/lib/web-vitals';
