@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Target, Award, RefreshCw, Wifi, WifiOff } from 'lucide-react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/hooks/useSession'
 import TaskIframe from './TaskIframe'
 import CountryBlockedMessage from './CountryBlockedMessage'
 

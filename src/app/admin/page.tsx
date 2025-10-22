@@ -1,7 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
-import type { Session } from 'next-auth';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, memo } from 'react';
 import { motion } from 'framer-motion';

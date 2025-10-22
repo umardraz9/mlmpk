@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     });
     
     // Determine redirect URL
-    const redirectUrl = user.isAdmin ? '/admin/dashboard' : '/dashboard';
+    const redirectUrl = user.isAdmin ? '/admin' : '/dashboard';
     
     console.log('Login successful for:', user.email);
     

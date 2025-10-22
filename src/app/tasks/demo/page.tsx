@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/hooks/useSession'
 import TaskList from '@/components/TaskList'
 import TaskExecution from '@/components/TaskExecution'
 import { contentTasks, type ContentTask } from '@/lib/content-tasks'

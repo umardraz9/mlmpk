@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import { Bell, Heart, MessageCircle, UserPlus, Share2, Clock } from 'lucide-react';
 import Link from 'next/link';

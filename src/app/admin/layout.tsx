@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 export const dynamicParams = true;
 
 import { ReactNode, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useRouter } from 'next/navigation';
 import AdminSidebarWrapper from '@/components/admin/AdminSidebarWrapper';
 import { useTheme } from '@/contexts/ThemeContext';

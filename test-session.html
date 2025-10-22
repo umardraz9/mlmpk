@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Session</title>
+</head>
+<body>
+    <h1>Session Test</h1>
+    <div id="session-info"></div>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="checkSession()">Check Session</button>
+    <button onclick="clearSession()">Clear Session</button>
+
+    <script>
+        function getCookie(name) {
+            const cookies = document.cookie.split(';');
+            const cookie = cookies.find(c => c.trim().startsWith(name + '='));
+            if (!cookie) return null;
+            return decodeURIComponent(cookie.split('=')[1]);
+        }
+
+        function checkSession() {
+            const sessionData = getCookie('mlmpk-session');
+            const info = document.getElementById('session-info');
+            
+            if (sessionData) {
+                try {
+                    const parsed = JSON.parse(sessionData);
+                    info.innerHTML = `
+                        <h3>Session Found:</h3>
+                        <p><strong>User:</strong> ${parsed.user.name} (${parsed.user.email})</p>
+                        <p><strong>Role:</strong> ${parsed.user.role}</p>
+                        <p><strong>Admin:</strong> ${parsed.user.isAdmin}</p>
+                        <p><strong>Expires:</strong> ${new Date(parsed.expires).toLocaleString()}</p>
+                        <p><strong>Login Time:</strong> ${new Date(parsed.loginTime).toLocaleString()}</p>
+                    `;
+                } catch (e) {
+                    info.innerHTML = `<p style="color: red;">Error parsing session: ${e.message}</p>`;
+                }
+            } else {
+                info.innerHTML = '<p style="color: orange;">No session found</p>';
+            }
+        }
+
+        function clearSession() {
+            document.cookie = 'mlmpk-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            checkSession();
+        }
+
+        async function testLogin() {
+            try {
+                const response = await fetch('/api/working-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@mlmpk.com',
+                        password: 'admin123'
+                    }),
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('session-info').innerHTML = `
+                        <h3 style="color: green;">Login Successful!</h3>
+                        <p>Redirect URL: ${data.redirectUrl}</p>
+                    `;
+                    setTimeout(checkSession, 1000);
+                } else {
+                    document.getElementById('session-info').innerHTML = `
+                        <h3 style="color: red;">Login Failed!</h3>
+                        <p>Error: ${data.error}</p>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('session-info').innerHTML = `
+                    <h3 style="color: red;">Request Failed!</h3>
+                    <p>Error: ${error.message}</p>
+                `;
+            }
+        }
+
+        // Check session on page load
+        checkSession();
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import { useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import dynamic from 'next/dynamic';

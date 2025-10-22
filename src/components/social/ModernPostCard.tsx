@@ -26,7 +26,7 @@ import {
   Globe,
   Loader2
 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 
 interface Comment {
   id: string;

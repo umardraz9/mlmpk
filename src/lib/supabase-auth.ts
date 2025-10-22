@@ -97,9 +97,19 @@ export const supabaseAuth = {
   // Create user
   async createUser(userData: any) {
     try {
+      // Generate a unique ID for the user
+      const userId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      
+      const userDataWithId = {
+        id: userId,
+        ...userData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
       const { data, error } = await supabase
         .from('users')
-        .insert(userData)
+        .insert(userDataWithId)
         .select()
         .single();
       

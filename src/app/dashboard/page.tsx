@@ -2,9 +2,9 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSession, signOut } from '@/hooks/useSession';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { signOut } from 'next-auth/react';
+// Removed NextAuth signOut import - using customSignOut instead
 import { useTheme } from '@/contexts/ThemeContext';
 import ThemeToggle from '@/components/ThemeToggle';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';

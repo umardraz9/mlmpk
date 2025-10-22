@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import BackToDashboard from '@/components/BackToDashboard';
 import { profileService, type ProfileData } from '@/lib/profile-service';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/useSession';
 import Image from 'next/image';
 import {
   Pencil as Edit,

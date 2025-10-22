@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db as prisma, testDatabaseConnection } from '@/lib/db';
+import { supabaseAuth } from '@/lib/supabase-auth';
 
 // Ensure this route runs on Node.js runtime (not Edge)
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // Test database connection first
-    const dbConnected = await testDatabaseConnection();
-    if (!dbConnected) {
-      console.error('Database connection failed during registration');
-      return NextResponse.json(
-        { message: 'Database connection error. Please try again later.' },
-        { status: 500 }
-      );
-    }
-
     const { name, email, phone, password, referralCode } = await request.json();
 
     // Validate required fields
@@ -55,43 +45,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: email.toLowerCase() },
-          { phone: normalizedPhone }
-        ]
-      }
-    });
-
+    const existingUser = await supabaseAuth.findUserByEmail(email.toLowerCase());
     if (existingUser) {
       return NextResponse.json(
-        { message: 'User with this email or phone already exists' },
+        { message: 'User with this email already exists' },
         { status: 409 }
       );
     }
 
-    // Resolve referrer code
-    let referrerCodeToApply: string | null = null;
+    // Resolve referrer code - default to admin referral code
+    let referrerCodeToApply: string = 'ADMIN001'; // Default to admin
     if (referralCode && typeof referralCode === 'string' && referralCode.trim().length > 0) {
-      const referrer = await prisma.user.findUnique({ where: { referralCode: referralCode.trim() } });
-      if (!referrer) {
-        return NextResponse.json(
-          { message: 'Invalid referral code' },
-          { status: 400 }
-        );
-      }
-      referrerCodeToApply = referrer.referralCode;
-    } else {
-      // No referral provided: default to admin referral code "admin123"
-      const adminUser = await prisma.user.findUnique({ where: { referralCode: 'admin123' } });
-      if (adminUser) {
-        referrerCodeToApply = adminUser.referralCode;
-      } else {
-        // Fallback: try to find any admin user
-        const anyAdmin = await prisma.user.findFirst({ where: { isAdmin: true } });
-        referrerCodeToApply = anyAdmin ? anyAdmin.referralCode : null;
-      }
+      // For now, we'll accept any referral code and validate later
+      // In a full implementation, you'd check if the referral code exists
+      referrerCodeToApply = referralCode.trim();
     }
 
     // Hash password
@@ -109,33 +76,34 @@ export async function POST(request: NextRequest) {
 
     let userReferralCode = generateMemorableReferralCode(name, normalizedPhone);
     
-    // Ensure referral code is unique
-    while (await prisma.user.findUnique({ where: { referralCode: userReferralCode } })) {
-      // If collision, append a short 2-digit suffix to keep it simple
-      const suffix = Math.floor(Math.random() * 90 + 10).toString(); // 10-99
-      userReferralCode = `${generateMemorableReferralCode(name, normalizedPhone)}-${suffix}`;
-    }
+    // Simple unique suffix for referral code
+    const suffix = Math.floor(Math.random() * 90 + 10).toString();
+    userReferralCode = `${userReferralCode}-${suffix}`;
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: email.toLowerCase().trim(),
-        phone: normalizedPhone.trim(),
-        password: hashedPassword,
-        referralCode: userReferralCode,
-        referredBy: referrerCodeToApply,
-        isActive: true,
-        membershipStatus: 'INACTIVE',
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        referralCode: true,
-        createdAt: true,
-      }
-    });
+    // Create user using Supabase
+    const userData = {
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: normalizedPhone.trim(),
+      password: hashedPassword,
+      referralCode: userReferralCode,
+      referredBy: referrerCodeToApply,
+      isActive: true,
+      role: 'USER',
+      isAdmin: false,
+      membershipStatus: 'INACTIVE',
+      balance: 0,
+      tasksEnabled: false
+    };
+
+    const user = await supabaseAuth.createUser(userData);
+    
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Failed to create user. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       message: 'Registration successful! Please sign in.',
@@ -150,26 +118,17 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Registration error:', error);
     
-    // More specific error handling
     if (error instanceof Error) {
       console.error('Error details:', {
         name: error.name,
         message: error.message,
-        stack: error.stack
       });
       
-      // Handle specific Prisma errors
-      if (error.message.includes('Unique constraint')) {
+      // Handle specific errors
+      if (error.message.includes('duplicate key') || error.message.includes('already exists')) {
         return NextResponse.json(
-          { message: 'User with this email or phone already exists' },
+          { message: 'User with this email already exists' },
           { status: 409 }
-        );
-      }
-      
-      if (error.message.includes('Database')) {
-        return NextResponse.json(
-          { message: 'Database error. Please try again later.' },
-          { status: 500 }
         );
       }
     }

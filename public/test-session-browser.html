@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Test - Browser</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 MLM Platform Session Test</h1>
+        
+        <div class="test-section info">
+            <h3>Current Session Status</h3>
+            <div id="session-status">Checking...</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test Login</h3>
+            <button onclick="testLogin('sultan@mcnmart.com', '12345678')">Test Sultan Login</button>
+            <button onclick="testLogin('admin@mlmpk.com', 'admin123')">Test Admin Login</button>
+            <div id="login-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Session Management</h3>
+            <button onclick="checkSession()">Check Session</button>
+            <button onclick="clearSession()">Clear Session</button>
+            <button onclick="testDashboardAccess()">Test Dashboard Access</button>
+            <div id="session-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Debug Information</h3>
+            <button onclick="showDebugInfo()">Show Debug Info</button>
+            <div id="debug-info"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function getCookie(name) {
+            const cookies = document.cookie.split(';');
+            const cookie = cookies.find(c => c.trim().startsWith(name + '='));
+            if (!cookie) return null;
+            return decodeURIComponent(cookie.split('=')[1]);
+        }
+
+        function checkSession() {
+            const sessionData = getCookie('mlmpk-session');
+            const statusDiv = document.getElementById('session-status');
+            const resultDiv = document.getElementById('session-result');
+            
+            if (sessionData) {
+                try {
+                    const parsed = JSON.parse(sessionData);
+                    const now = new Date();
+                    const expires = new Date(parsed.expires);
+                    const isExpired = now > expires;
+                    
+                    const html = `
+                        <div class="${isExpired ? 'error' : 'success'}">
+                            <h4>Session Found ${isExpired ? '(EXPIRED)' : '(VALID)'}</h4>
+                            <p><strong>User:</strong> ${parsed.user.name} (${parsed.user.email})</p>
+                            <p><strong>Role:</strong> ${parsed.user.role} ${parsed.user.isAdmin ? '(Admin)' : ''}</p>
+                            <p><strong>Expires:</strong> ${expires.toLocaleString()}</p>
+                            <p><strong>Login Time:</strong> ${new Date(parsed.loginTime).toLocaleString()}</p>
+                            <p><strong>Time Remaining:</strong> ${Math.max(0, Math.floor((expires - now) / 1000 / 60))} minutes</p>
+                        </div>
+                    `;
+                    statusDiv.innerHTML = html;
+                    if (resultDiv) resultDiv.innerHTML = html;
+                } catch (e) {
+                    const errorHtml = `<div class="error">Error parsing session: ${e.message}</div>`;
+                    statusDiv.innerHTML = errorHtml;
+                    if (resultDiv) resultDiv.innerHTML = errorHtml;
+                }
+            } else {
+                const noSessionHtml = '<div class="error">No session found</div>';
+                statusDiv.innerHTML = noSessionHtml;
+                if (resultDiv) resultDiv.innerHTML = noSessionHtml;
+            }
+        }
+
+        function clearSession() {
+            document.cookie = 'mlmpk-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.getElementById('session-result').innerHTML = '<div class="info">Session cleared</div>';
+            checkSession();
+        }
+
+        async function testLogin(email, password) {
+            const resultDiv = document.getElementById('login-result');
+            resultDiv.innerHTML = '<div class="info">Testing login...</div>';
+            
+            try {
+                const response = await fetch('/api/working-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Login Successful!</h4>
+                            <p><strong>User:</strong> ${data.user.name}</p>
+                            <p><strong>Email:</strong> ${data.user.email}</p>
+                            <p><strong>Role:</strong> ${data.user.role}</p>
+                            <p><strong>Redirect URL:</strong> ${data.redirectUrl}</p>
+                        </div>
+                    `;
+                    setTimeout(checkSession, 1000);
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Login Failed</h4>
+                            <p>Error: ${data.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Request Failed</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testDashboardAccess() {
+            const resultDiv = document.getElementById('session-result');
+            
+            try {
+                const response = await fetch('/dashboard', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ Dashboard accessible (200 OK)</div>';
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Dashboard access failed (${response.status})</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Dashboard test failed: ${error.message}</div>`;
+            }
+        }
+
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debug-info');
+            const allCookies = document.cookie;
+            const userAgent = navigator.userAgent;
+            const currentUrl = window.location.href;
+            
+            debugDiv.innerHTML = `
+                <pre>
+Current URL: ${currentUrl}
+User Agent: ${userAgent}
+All Cookies: ${allCookies || 'No cookies found'}
+
+Local Storage Keys: ${Object.keys(localStorage).join(', ') || 'None'}
+Session Storage Keys: ${Object.keys(sessionStorage).join(', ') || 'None'}
+                </pre>
+            `;
+        }
+
+        // Check session on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSession();
+            log('Session test page loaded');
+        });
+    </script>
+</body>
+</html>

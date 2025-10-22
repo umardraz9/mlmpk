@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useCallback, useMemo, useState, memo } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/hooks/useSession'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Skeleton } from '@/components/ui/skeleton'
