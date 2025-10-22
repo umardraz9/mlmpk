@@ -89,17 +89,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Pagination
-    const skip = (page - 1) * limit
-    const paginatedPosts = filteredPosts.slice(skip, skip + limit)
-    const total = filteredPosts.length
-      })
-    ])
+    const skip = (page - 1) * limit;
+    const paginatedPosts = filteredPosts.slice(skip, skip + limit);
+    const total = filteredPosts.length;
 
     // Compute per-user favorites for saved/pinned/muted states
-    const postIds = posts.map(p => p.id)
-    let savedSet = new Set<string>()
-    let pinnedSet = new Set<string>()
-    let mutedSet = new Set<string>()
+    const postIds = paginatedPosts.map(p => p.id);
+    let savedSet = new Set<string>();
+    let pinnedSet = new Set<string>();
+    let mutedSet = new Set<string>();
     if (postIds.length > 0) {
       const favs = await prisma.favorite.findMany({
         where: {
@@ -115,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Format posts with comprehensive data
-    const formattedPostsRaw = posts.map(post => ({
+    const formattedPostsRaw = paginatedPosts.map(post => ({
       id: post.id,
       content: post.content,
       imageUrl: post.imageUrl,
