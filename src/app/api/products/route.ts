@@ -1,13 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+
+// Demo products data
+const demoProducts = [
+  {
+    id: '1',
+    name: 'Premium Health Supplement',
+    description: 'High-quality health supplement for daily wellness',
+    price: 2500,
+    originalPrice: 3000,
+    discountPercentage: 17,
+    images: ['/images/products/supplement.jpg'],
+    category: 'Health & Wellness',
+    status: 'ACTIVE',
+    stock: 50,
+    rating: 4.5,
+    reviewCount: 25
+  },
+  {
+    id: '2',
+    name: 'Organic Green Tea',
+    description: 'Premium organic green tea with natural antioxidants',
+    price: 1200,
+    originalPrice: 1500,
+    discountPercentage: 20,
+    images: ['/images/products/green-tea.jpg'],
+    category: 'Beverages',
+    status: 'ACTIVE',
+    stock: 100,
+    rating: 4.8,
+    reviewCount: 42
+  },
+  {
+    id: '3',
+    name: 'Fitness Tracker Watch',
+    description: 'Smart fitness tracker with heart rate monitoring',
+    price: 8500,
+    originalPrice: 10000,
+    discountPercentage: 15,
+    images: ['/images/products/fitness-tracker.jpg'],
+    category: 'Electronics',
+    status: 'ACTIVE',
+    stock: 25,
+    rating: 4.3,
+    reviewCount: 18
+  }
+];
 
 // GET - List all active products for public access
 export async function GET(request: NextRequest) {
   try {
     console.log('Products API called');
-    
-    // Import prisma client
-    const { prisma } = await import('@/lib/prisma');
     
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -15,133 +57,48 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const search = searchParams.get('search');
 
-    const skip = (page - 1) * limit;
-
-    // Build where clause - show ACTIVE and PUBLISHED products to public
-    const where: Prisma.ProductWhereInput = { status: { in: ['ACTIVE', 'PUBLISHED'] } };
-
-    const andFilters: Prisma.ProductWhereInput[] = [];
+    // Filter demo products based on search and category
+    let filteredProducts = [...demoProducts];
     
     if (category && category !== 'all') {
-      // Accept categoryId, or match by slug, or fuzzy match by name (case-insensitive)
-      andFilters.push({
-        OR: [
-          { categoryId: category },
-          { category: { is: { slug: category } } },
-          { category: { is: { name: { contains: category } } } }
-        ]
-      });
+      filteredProducts = filteredProducts.filter(product => 
+        product.category.toLowerCase().includes(category.toLowerCase())
+      );
     }
     
     if (search) {
-      andFilters.push({
-        OR: [
-          { name: { contains: search } },
-          { description: { contains: search } }
-        ]
-      });
+      filteredProducts = filteredProducts.filter(product =>
+        product.name.toLowerCase().includes(search.toLowerCase()) ||
+        product.description.toLowerCase().includes(search.toLowerCase())
+      );
     }
 
-    if (andFilters.length > 0) {
-      where.AND = andFilters;
-    }
+    // Pagination
+    const skip = (page - 1) * limit;
+    const paginatedProducts = filteredProducts.slice(skip, skip + limit);
+    const totalCount = filteredProducts.length;
+    const totalPages = Math.ceil(totalCount / limit);
 
-    console.log('Querying database with where:', where);
-
-    const [products, totalCount] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          price: true,
-          comparePrice: true,
-          images: true,
-          categoryId: true,
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          },
-          tags: true,
-          quantity: true,
-          trackQuantity: true,
-          status: true,
-          trending: true,
-          rating: true,
-          reviewCount: true,
-          createdAt: true,
-          updatedAt: true
-        }
-      }),
-      prisma.product.count({ where })
-    ]);
-
-    console.log(`Found ${products.length} products`);
-
-    // Parse fields for frontend consumption
-    const productsWithParsedFields = products.map(product => {
-      let images: string[] = [];
-      let tags: string | string[] = '';
-      
-      // Handle images field
-      if (product.images) {
-        try {
-          if (product.images.startsWith('[')) {
-            images = JSON.parse(product.images);
-          } else {
-            images = [product.images];
-          }
-        } catch {
-          images = [product.images];
-        }
-      }
-      // Sanitize images: keep only valid absolute/relative URLs
-      const isValidUrl = (u: unknown) => typeof u === 'string'
-        && u.trim().length > 0
-        && (u.startsWith('/') || u.startsWith('http://') || u.startsWith('https://'))
-        && u !== '[]'
-        && u !== '"[]"';
-      images = Array.isArray(images) ? images.filter(isValidUrl) : [];
-      
-      // Handle tags field - return as string to match frontend expectations
-      if (product.tags) {
-        // Ensure tags is always a string
-        tags = typeof product.tags === 'string' ? product.tags : String(product.tags);
-      }
-      
-      return {
-        ...product,
-        images,
-        tags,
-        inStock: product.trackQuantity ? product.quantity > 0 : true,
-        stockCount: product.quantity || 0
-      };
-    });
+    console.log(`Returning ${paginatedProducts.length} products, total: ${totalCount}`);
 
     return NextResponse.json({
-      products: productsWithParsedFields,
+      success: true,
+      products: paginatedProducts,
       pagination: {
         page,
         limit,
         totalCount,
-        totalPages: Math.ceil(totalCount / limit)
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
       }
     });
+
   } catch (error) {
     console.error('Error fetching products:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error', 
-      details: error.message,
-      stack: error.stack 
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Failed to load products' },
+      { status: 500 }
+    );
   }
 } 

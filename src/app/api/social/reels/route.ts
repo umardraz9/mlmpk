@@ -1,63 +1,75 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
-import { db as prisma } from '@/lib/db';
 
-// GET /api/social/reels - Get trending reels from database
+// Demo reels data
+const demoReels = [
+  {
+    id: '1',
+    videoUrl: '/videos/demo-reel-1.mp4',
+    thumbnailUrl: '/images/reels/reel-1-thumb.jpg',
+    caption: 'Amazing MLM success story! 🚀 From zero to hero in just 3 months!',
+    author: {
+      id: 'user-1',
+      name: 'Sarah Ahmed',
+      username: 'sarah_success',
+      image: '/images/avatars/sarah.jpg'
+    },
+    likes: 245,
+    comments: 32,
+    shares: 18,
+    duration: 45,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() // 2 hours ago
+  },
+  {
+    id: '2',
+    videoUrl: '/videos/demo-reel-2.mp4',
+    thumbnailUrl: '/images/reels/reel-2-thumb.jpg',
+    caption: 'Daily routine of a successful MLM entrepreneur 💪 #MLMLife #Success',
+    author: {
+      id: 'user-2',
+      name: 'Ahmed Khan',
+      username: 'ahmed_entrepreneur',
+      image: '/images/avatars/ahmed.jpg'
+    },
+    likes: 189,
+    comments: 24,
+    shares: 12,
+    duration: 38,
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() // 5 hours ago
+  },
+  {
+    id: '3',
+    videoUrl: '/videos/demo-reel-3.mp4',
+    thumbnailUrl: '/images/reels/reel-3-thumb.jpg',
+    caption: 'Tips for building your MLM network effectively 📈 #NetworkMarketing',
+    author: {
+      id: 'user-3',
+      name: 'Fatima Ali',
+      username: 'fatima_leader',
+      image: '/images/avatars/fatima.jpg'
+    },
+    likes: 156,
+    comments: 19,
+    shares: 8,
+    duration: 52,
+    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString() // 8 hours ago
+  }
+];
+
+// GET /api/social/reels - Get trending reels
 export async function GET() {
   try {
-    // Fetch posts with videos (reels)
-    const reels = await prisma.socialPost.findMany({
-      where: {
-        status: 'ACTIVE',
-        OR: [
-          { videoUrl: { not: null } },
-          { type: 'reel' }
-        ]
-      },
-      orderBy: [
-        { createdAt: 'desc' }
-      ],
-      take: 10,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            referralCode: true
-          }
-        }
-      }
-    });
-
-    // Transform to match expected format
-    const formattedReels = reels.map(reel => ({
-      id: reel.id,
-      videoUrl: reel.videoUrl || '',
-      thumbnailUrl: reel.coverUrl || reel.mediaUrls?.[0] || '/api/placeholder/300/533',
-      caption: reel.content,
-      author: {
-        id: reel.author.id,
-        name: reel.author.name || 'User',
-        username: reel.author.referralCode || reel.author.email?.split('@')[0] || 'user',
-        image: reel.author.image || '/api/placeholder/150/150'
-      },
-      likes: 0, // TODO: Count from socialLike table
-      comments: 0, // TODO: Count from socialComment table
-      shares: 0, // TODO: Count from socialShare table
-      duration: 30,
-      createdAt: reel.createdAt.toISOString()
-    }));
-
     return NextResponse.json({
       success: true,
-      reels: formattedReels
+      reels: demoReels
     });
 
   } catch (error) {
     console.error('Failed to fetch reels:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to fetch reels' 
+    }, { status: 500 });
   }
 }
 

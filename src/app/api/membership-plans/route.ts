@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { requireAdmin } from '@/lib/session';
 
 // use shared prisma client from lib/db
@@ -100,71 +99,13 @@ function getDefaultPlans() {
 // GET /api/membership-plans - Get all membership plans with commission structures
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    let includeAll = searchParams.get('includeAll') === '1' || searchParams.get('includeAll') === 'true';
-    const includeInactivePublic = searchParams.get('includeInactive') === '1' || searchParams.get('includeInactive') === 'true';
-    const includeDefaults = searchParams.get('includeDefaults') === '1' || searchParams.get('includeDefaults') === 'true';
-    if (includeAll) {
-      // Only admins can request all plans (including inactive)
-      try {
-        await requireAdmin();
-      } catch {
-        includeAll = false;
-      }
-    }
-
-    const plans = await prisma.membershipPlan.findMany({
-      where: (includeAll || includeInactivePublic) ? {} : { isActive: true },
-      include: {
-        referralCommissions: {
-          orderBy: { level: 'asc' }
-        }
-      },
-      orderBy: { price: 'asc' }
-    });
-
-    // Parse features JSON for each plan and ensure commission percentages (robust parsing)
-    let plansWithFeatures: any[] = plans.map(plan => {
-      let featuresArr: any[] = [];
-      if (plan.features) {
-        try {
-          const parsed = JSON.parse(plan.features);
-          featuresArr = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          featuresArr = [];
-        }
-      }
-      return {
-        ...plan,
-        features: featuresArr,
-        referralCommissions: plan.referralCommissions.map((comm) => ({
-          ...comm,
-          percentage: typeof comm.percentage === 'number' && !Number.isNaN(comm.percentage)
-            ? comm.percentage
-            : (comm.amount / (plan.price || 1)) * 100
-        })),
-        totalCommission: plan.referralCommissions.reduce((sum, comm) => sum + comm.amount, 0)
-      }
-    });
-
-    // Correct PREMIUM price if it was set incorrectly in DB
-    plansWithFeatures = plansWithFeatures.map(p =>
-      p.name === 'PREMIUM' && p.price !== 8000 ? { ...p, price: 8000 } : p
-    );
-
-    // Merge defaults conditionally
-    // IMPORTANT: Only include default plans when the database has ZERO plans.
-    // This ensures that if an admin deletes a plan, it does not reappear from defaults.
-    if (plansWithFeatures.length === 0) {
-      plansWithFeatures = getDefaultPlans();
-    }
-
-    // Sort by price ascending for consistent UI
-    plansWithFeatures.sort((a: any, b: any) => (a.price ?? 0) - (b.price ?? 0));
+    // For now, return default plans since we're using Supabase
+    // TODO: Implement Supabase-based plan management later
+    const plans = getDefaultPlans();
 
     return NextResponse.json({
       success: true,
-      plans: plansWithFeatures
+      plans: plans
     });
 
   } catch (error) {
@@ -179,92 +120,19 @@ export async function GET(request: NextRequest) {
 // POST /api/membership-plans - Create new membership plan (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    try {
-      await requireAdmin();
-    } catch (e) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    const body = await request.json();
-    const {
-      name,
-      displayName,
-      price,
-      dailyTaskEarning,
-      tasksPerDay,
-      maxEarningDays,
-      extendedEarningDays,
-      minimumWithdrawal,
-      voucherAmount,
-      description,
-      features,
-      commissions
-    } = body;
-
-    // Validate required fields
-    if (!name || !displayName || price === undefined || dailyTaskEarning === undefined) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Return existing plan if already present (idempotent by plan name)
-    const existing = await prisma.membershipPlan.findFirst({
-      where: { name: String(name).toUpperCase() }
-    });
-    if (existing) {
-      return NextResponse.json({
-        success: true,
-        plan: existing,
-        message: 'Membership plan already exists'
-      });
-    }
-
-    // Create membership plan
-    const plan = await prisma.membershipPlan.create({
-      data: {
-        name: String(name).toUpperCase(),
-        displayName: String(displayName),
-        price: Number(price),
-        dailyTaskEarning: Number(dailyTaskEarning),
-        tasksPerDay: tasksPerDay ? Number(tasksPerDay) : 5,
-        maxEarningDays: maxEarningDays ? Number(maxEarningDays) : 30,
-        extendedEarningDays: extendedEarningDays ? Number(extendedEarningDays) : 60,
-        minimumWithdrawal: minimumWithdrawal !== undefined ? Number(minimumWithdrawal) : 2000,
-        voucherAmount: voucherAmount !== undefined ? Number(voucherAmount) : 500,
-        description: description || null,
-        features: features ? JSON.stringify(features) : null
-      }
-    });
-
-    // Create commission structure if provided
-    if (commissions && Array.isArray(commissions)) {
-      for (const commission of commissions) {
-        await prisma.referralCommission.create({
-          data: {
-            membershipPlanId: plan.id,
-            level: Number(commission.level),
-            amount: Number(commission.amount),
-            percentage: (Number(commission.amount) / Number(price)) * 100,
-            description: commission.description
-          }
-        });
-      }
-    }
-
+    await requireAdmin();
+    
+    // TODO: Implement Supabase-based plan creation later
     return NextResponse.json({
-      success: true,
-      plan,
-      message: 'Membership plan created successfully'
-    });
+      success: false,
+      error: 'Plan creation not implemented yet - using default plans'
+    }, { status: 501 });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating membership plan:', error);
-    const msg = typeof error?.message === 'string' ? error.message : 'Failed to create membership plan';
-    // Likely validation/constraint errors
     return NextResponse.json(
-      { success: false, error: msg.includes('Admin access required') ? 'Unauthorized' : msg },
-      { status: msg.includes('Unauthorized') ? 401 as any : 500 }
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
     );
   }
 }
