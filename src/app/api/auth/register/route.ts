@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve referrer code - default to admin referral code
-    let referrerCodeToApply: string = 'ADMIN001'; // Default to admin
+    let referrerCodeToApply: string = 'adm001'; // Default to admin
     if (referralCode && typeof referralCode === 'string' && referralCode.trim().length > 0) {
       // For now, we'll accept any referral code and validate later
       // In a full implementation, you'd check if the referral code exists
@@ -64,21 +64,17 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate memorable referral code: first 3 letters of name + '-' + last 4 digits of phone (e.g., "ALI-8743")
+    // Generate simple referral code: first 3 letters of name + last 3 digits of phone (e.g., "uma346")
     const sanitizeName = (n: string) => n.replace(/[^A-Za-z]/g, '');
-    const generateMemorableReferralCode = (fullName: string, rawPhone: string) => {
-      const cleanName = sanitizeName(fullName || '').toUpperCase();
-      const prefix = (cleanName.substring(0, 3) || 'USR').padEnd(3, 'X');
+    const generateSimpleReferralCode = (fullName: string, rawPhone: string) => {
+      const cleanName = sanitizeName(fullName || '').toLowerCase();
+      const namePrefix = (cleanName.substring(0, 3) || 'usr').padEnd(3, 'x');
       const digits = (rawPhone || '').replace(/\D/g, '');
-      const last4 = (digits.slice(-4) || '0000').padStart(4, '0');
-      return `${prefix}-${last4}`;
+      const last3 = (digits.slice(-3) || '000').padStart(3, '0');
+      return `${namePrefix}${last3}`;
     };
 
-    let userReferralCode = generateMemorableReferralCode(name, normalizedPhone);
-    
-    // Simple unique suffix for referral code
-    const suffix = Math.floor(Math.random() * 90 + 10).toString();
-    userReferralCode = `${userReferralCode}-${suffix}`;
+    const userReferralCode = generateSimpleReferralCode(name, normalizedPhone);
 
     // Create user using Supabase
     const userData = {
