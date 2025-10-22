@@ -1,8 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
 import { getServerSession } from '@/lib/session'
-import fs from 'fs'
-import path from 'path'
+
+// Demo social posts data
+const demoPosts = [
+  {
+    id: '1',
+    content: 'Just achieved my first milestone in MLM! 🎉 Grateful for this amazing community and the support system. #MLMSuccess #Grateful',
+    type: 'text',
+    mediaUrls: [],
+    author: {
+      id: 'user-1',
+      name: 'Sarah Ahmed',
+      email: 'sarah@example.com',
+      image: '/images/avatars/sarah.jpg',
+      referralCode: 'SAR001'
+    },
+    likes: 24,
+    comments: 8,
+    shares: 3,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    status: 'ACTIVE'
+  },
+  {
+    id: '2',
+    content: 'Check out these amazing products from our marketplace! Quality guaranteed 💯',
+    type: 'image',
+    mediaUrls: ['/images/posts/product-showcase.jpg'],
+    author: {
+      id: 'user-2',
+      name: 'Ahmed Khan',
+      email: 'ahmed@example.com',
+      image: '/images/avatars/ahmed.jpg',
+      referralCode: 'AHM002'
+    },
+    likes: 45,
+    comments: 12,
+    shares: 7,
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    status: 'ACTIVE'
+  },
+  {
+    id: '3',
+    content: 'Team building session was incredible! 🚀 Building stronger connections every day.',
+    type: 'video',
+    mediaUrls: ['/videos/team-building.mp4'],
+    videoUrl: '/videos/team-building.mp4',
+    author: {
+      id: 'user-3',
+      name: 'Fatima Ali',
+      email: 'fatima@example.com',
+      image: '/images/avatars/fatima.jpg',
+      referralCode: 'FAT003'
+    },
+    likes: 67,
+    comments: 15,
+    shares: 9,
+    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    status: 'ACTIVE'
+  }
+];
 
 // GET - Fetch social posts with pagination and enhanced features
 export async function GET(request: NextRequest) {
@@ -17,96 +73,25 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const type = searchParams.get('type') || ''
-    const userId = searchParams.get('userId') || ''
     const search = searchParams.get('search') || ''
-    const skip = (page - 1) * limit
 
-    // Build where clause with advanced filtering
-    const where: any = {
-      status: 'ACTIVE'
-    }
-
+    // Filter demo posts based on search and type
+    let filteredPosts = [...demoPosts]
+    
     if (type && type !== 'all') {
-      where.type = type
+      filteredPosts = filteredPosts.filter(post => post.type === type)
     }
-
-    if (userId) {
-      where.authorId = userId
-    }
-
+    
     if (search) {
-      where.content = {
-        contains: search,
-        mode: 'insensitive'
-      }
+      filteredPosts = filteredPosts.filter(post =>
+        post.content.toLowerCase().includes(search.toLowerCase())
+      )
     }
 
-    // Fetch posts with comprehensive data
-    const [posts, total, stats] = await Promise.all([
-      prisma.socialPost.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: [
-          { createdAt: 'desc' }
-        ],
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              image: true, // Use 'image' field instead of 'avatar'
-              totalPoints: true,
-              isActive: true,
-              createdAt: true
-            }
-          },
-          likes: {
-            select: {
-              userId: true,
-              createdAt: true
-            }
-          },
-          comments: {
-            select: {
-              id: true,
-              content: true,
-              userId: true,
-              createdAt: true,
-              user: {
-                select: {
-                  name: true,
-                  username: true,
-                  image: true, // Use 'image' field instead of 'avatar'
-                  totalPoints: true
-                }
-              }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 3 // Show latest 3 comments
-          },
-          shares: {
-            select: {
-              id: true,
-              platform: true,
-              createdAt: true
-            }
-          },
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
-              shares: true
-            }
-          }
-        }
-      }),
-      prisma.socialPost.count({ where }),
-      // Get overall stats
-      prisma.socialPost.aggregate({
-        where: { status: 'ACTIVE' },
-        _count: { id: true }
+    // Pagination
+    const skip = (page - 1) * limit
+    const paginatedPosts = filteredPosts.slice(skip, skip + limit)
+    const total = filteredPosts.length
       })
     ])
 

@@ -589,7 +589,117 @@ function DashboardContent() {
   ] as const;
 
   return (
-    <MobileLayout showBottomNav={true}>
+    <MobileLayout 
+      showBottomNav={true}
+      title="MCNmart Dashboard"
+      subtitle={`Welcome back, ${session?.user?.name?.split(' ')[0] || 'User'}`}
+      actions={
+        <div className="flex items-center space-x-2 md:hidden">
+          {/* Theme Toggle for mobile */}
+          <ThemeToggle />
+          
+          {/* Mobile Notifications */}
+          <NotificationDropdown />
+
+          {/* Mobile Profile Menu */}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Open profile menu"
+                className="h-9 w-9 p-0"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.image || session?.user?.image || ''} alt={session?.user?.name || 'User'} />
+                  <AvatarFallback className="bg-green-600 text-white text-sm">
+                    {session?.user?.name?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                side="bottom"
+                sideOffset={8}
+                align="end"
+                collisionPadding={8}
+                className={`w-64 max-w-[90vw] rounded-lg shadow-lg border z-[70] transition-colors ${
+                  isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}
+              >
+                <div className={`p-4 border-b transition-colors ${
+                  isDark ? 'border-gray-700' : 'border-gray-200'
+                }`}>
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={profile?.image || session?.user?.image || ''} alt={session?.user?.name || 'User'} />
+                      <AvatarFallback className="bg-green-600 text-white">
+                        {session?.user?.name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className={`font-semibold transition-colors ${
+                        isDark ? 'text-white' : 'text-gray-900'
+                      }`}>{String(session?.user?.name || 'User')}</p>
+                      <p className={`text-sm transition-colors ${
+                        isDark ? 'text-gray-400' : 'text-gray-600'
+                      }`}>{String(session?.user?.email || '')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="py-2">
+                  <DropdownMenu.Item
+                    onSelect={() => router.push('/profile')}
+                    className={`flex items-center space-x-3 px-4 py-2 text-sm outline-none cursor-pointer ${
+                      isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>View Profile</span>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Item
+                    onSelect={() => router.push('/settings')}
+                    className={`flex items-center space-x-3 px-4 py-2 text-sm outline-none cursor-pointer ${
+                      isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Account Settings</span>
+                  </DropdownMenu.Item>
+
+                  <DropdownMenu.Item
+                    onSelect={() => router.push('/favorites')}
+                    className={`flex items-center space-x-3 px-4 py-2 text-sm outline-none cursor-pointer ${
+                      isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Heart className="h-4 w-4" />
+                    <span>Favorites</span>
+                  </DropdownMenu.Item>
+
+                  <div className={`border-t my-2 transition-colors ${
+                    isDark ? 'border-gray-700' : 'border-gray-200'
+                  }`} />
+
+                  <DropdownMenu.Item
+                    onSelect={() => signOut({ callbackUrl: '/auth/login' })}
+                    className={`flex items-center space-x-3 px-4 py-2 text-sm outline-none cursor-pointer text-red-600 ${
+                      isDark ? 'hover:bg-gray-700' : 'hover:bg-red-50'
+                    }`}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </DropdownMenu.Item>
+                </div>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        </div>
+      }
+    >
       <MobilePageContainer>
         {/* Secondary header (hide on mobile to prevent double headers) */}
         <div className={`hidden md:block shadow-sm border-b sticky top-0 z-40 transition-colors duration-300 ${
@@ -933,21 +1043,21 @@ function DashboardContent() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 place-items-center">
               {quickActions.map(action => {
                 const Icon = action.icon;
                 return (
                   <TouchButton
                     key={action.title}
                     onClick={() => router.push(action.href)}
-                    className={`group flex items-start gap-4 p-4 h-full rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${isDark ? 'bg-gray-800/60 border-gray-700/50 hover:bg-gray-700/60' : 'bg-white/80 border-gray-200/60 hover:bg-white/90'}`}
+                    className={`group w-full max-w-xs flex flex-col items-center justify-center text-center gap-4 p-6 h-full min-h-[140px] rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${isDark ? 'bg-gray-800/60 border-gray-700/50 hover:bg-gray-700/60' : 'bg-white/80 border-gray-200/60 hover:bg-white/90'}`}
                   >
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300`}> 
-                      <Icon className="w-6 h-6 text-white" />
+                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 mx-auto`}> 
+                      <Icon className="w-8 h-8 text-white" />
                     </div>
-                    <div className="text-left">
-                      <h3 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{action.title}</h3>
-                      <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{action.description}</p>
+                    <div className="text-center w-full px-2">
+                      <h3 className={`text-sm font-semibold mb-2 leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{action.title}</h3>
+                      <p className={`text-xs leading-relaxed line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{action.description}</p>
                     </div>
                   </TouchButton>
                 );
@@ -1515,298 +1625,6 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Mobile Header */}
-        <div className={`shadow-sm border-b sticky top-0 z-40 md:hidden transition-colors duration-300 ${
-          isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="px-4 py-3">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-600 to-green-700 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h1 className={`text-lg font-bold transition-colors ${
-                    isDark ? 'text-white' : 'text-gray-900'
-                  }`}>MCNmart</h1>
-                  <p className={`text-xs transition-colors ${
-                    isDark ? 'text-gray-400' : 'text-gray-600'
-                  }`}>Dashboard</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                {/* Theme Toggle */}
-                <ThemeToggle />
-                
-                {/* Mobile Messages */}
-                <div className="relative" ref={messageRef}>
-                  <TouchButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowMessages(!showMessages)}
-                    className={`relative p-2 transition-colors ${
-                      isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Mail className="h-4 w-4" />
-                    {messageCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-blue-500 text-white">
-                        {messageCount}
-                      </Badge>
-                    )}
-                  </TouchButton>
-                
-                  {showMessages && (
-                    <div className={`absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg shadow-xl border z-50 max-h-80 overflow-y-auto transition-colors duration-300 ${
-                      isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
-                    }`}>
-                      <div className={`p-3 border-b transition-colors ${
-                        isDark ? 'border-gray-600' : 'border-gray-200'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <h3 className={`font-semibold text-sm transition-colors ${
-                            isDark ? 'text-white' : 'text-gray-900'
-                          }`}>Messages</h3>
-                          <TouchButton
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowMessages(false)}
-                            className={`p-1 transition-colors ${
-                              isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            <X className="h-3 w-3" />
-                          </TouchButton>
-                        </div>
-                      </div>
-                      <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                        <div className={`p-3 cursor-pointer transition-colors ${
-                          isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                        }`}>
-                          <div className="flex items-start space-x-3">
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarFallback className="bg-green-600 text-white text-xs">A</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-medium transition-colors ${
-                                isDark ? 'text-white' : 'text-gray-900'
-                              }`}>Admin Support</p>
-                              <p className={`text-xs mt-1 transition-colors line-clamp-2 ${
-                                isDark ? 'text-gray-300' : 'text-gray-600'
-                              }`}>Welcome to MCNmart! How can we help you today?</p>
-                              <p className={`text-xs mt-1 transition-colors ${
-                                isDark ? 'text-gray-400' : 'text-gray-500'
-                              }`}>2 hours ago</p>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                          </div>
-                        </div>
-                        <div className={`p-3 cursor-pointer transition-colors ${
-                          isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                        }`}>
-                          <div className="flex items-start space-x-3">
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarFallback className="bg-blue-600 text-white text-xs">T</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-medium transition-colors ${
-                                isDark ? 'text-white' : 'text-gray-900'
-                              }`}>Team Leader</p>
-                              <p className={`text-xs mt-1 transition-colors line-clamp-2 ${
-                                isDark ? 'text-gray-300' : 'text-gray-600'
-                              }`}>Great work on your recent sales! Keep it up.</p>
-                              <p className={`text-xs mt-1 transition-colors ${
-                                isDark ? 'text-gray-400' : 'text-gray-500'
-                              }`}>1 day ago</p>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 flex-shrink-0"></div>
-                          </div>
-                        </div>
-                        <div className="p-3 text-center">
-                          <TouchButton variant="outline" size="sm" className="w-full text-xs">
-                            View All Messages
-                          </TouchButton>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Mobile Notifications */}
-                <div className="relative" ref={notificationRef}>
-                  <TouchButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className={`relative p-2 transition-colors ${
-                      isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bell h-4 w-4">
-                      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-                      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-                    </svg>
-                    {notificationCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white">
-                        {notificationCount}
-                      </Badge>
-                    )}
-                  </TouchButton>
-                
-                {showNotifications && (
-                  <div className={`absolute right-0 mt-2 w-72 rounded-lg shadow-xl border z-50 max-h-80 overflow-y-auto transition-colors duration-300 ${
-                    isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
-                  }`}>
-                    <div className={`p-3 border-b transition-colors ${
-                      isDark ? 'border-gray-600' : 'border-gray-200'
-                    }`}>
-                      <h3 className={`font-semibold text-sm transition-colors ${
-                        isDark ? 'text-white' : 'text-gray-900'
-                      }`}>Notifications</h3>
-                    </div>
-                    <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-3 cursor-pointer transition-colors ${
-                            isDark 
-                              ? `hover:bg-gray-700 ${!notification.read ? 'bg-green-900/20' : ''}` 
-                              : `hover:bg-gray-50 ${!notification.read ? 'bg-green-50' : ''}`
-                          }`}
-                          onClick={() => markAsRead(notification.id)}
-                        >
-                          <div className="flex items-start space-x-2">
-                            <div className={`w-2 h-2 rounded-full mt-1 ${
-                              notification.type === 'success' ? 'bg-green-500' :
-                              notification.type === 'money' ? 'bg-yellow-500' :
-                              notification.type === 'warning' ? 'bg-red-500' :
-                              notification.type === 'event' ? 'bg-blue-500' :
-                              'bg-gray-500'
-                            }`} />
-                            <div className="flex-1">
-                              <p className={`text-xs font-medium transition-colors ${
-                                isDark ? 'text-white' : 'text-gray-900'
-                              }`}>{String(notification.title ?? '')}</p>
-                              <p className={`text-xs mt-1 transition-colors ${
-                                isDark ? 'text-gray-300' : 'text-gray-600'
-                              }`}>{String(notification.message ?? '')}</p>
-                              <p className={`text-xs mt-1 transition-colors ${
-                                isDark ? 'text-gray-400' : 'text-gray-500'
-                              }`}>{notification.time}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile User Profile Menu - Radix Dropdown */}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <TouchButton
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Open profile menu"
-                    className={`flex items-center space-x-1 p-1 transition-colors ${
-                      isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={profile?.image || session?.user?.image || ''} alt={session?.user?.name || 'User'} />
-                      <AvatarFallback className="bg-green-600 text-white text-xs">
-                        {session?.user?.name?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <ChevronDown className="h-3 w-3" />
-                  </TouchButton>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    side="bottom"
-                    sideOffset={8}
-                    align="end"
-                    collisionPadding={8}
-                    className={`right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-lg shadow-xl border z-50 transition-colors duration-300 ${
-                      isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <div className={`p-4 border-b transition-colors ${
-                      isDark ? 'border-gray-600' : 'border-gray-200'
-                    }`}>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={profile?.image || session?.user?.image || ''} alt={session?.user?.name || 'User'} />
-                          <AvatarFallback className="bg-green-600 text-white text-sm">
-                            {session?.user?.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm transition-colors truncate ${
-                            isDark ? 'text-white' : 'text-gray-900'
-                          }`}>{String(session?.user?.name || 'User')}</p>
-                          <p className={`text-xs transition-colors truncate ${
-                            isDark ? 'text-gray-400' : 'text-gray-600'
-                          }`}>{String(session?.user?.email || '')}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="py-2">
-                      <DropdownMenu.Item
-                        onSelect={() => router.push('/profile')}
-                        className={`flex items-center w-full px-4 py-2 text-sm outline-none cursor-pointer ${
-                          isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                      >
-                        <User className="h-4 w-4 mr-3" />
-                        <span>View Profile</span>
-                      </DropdownMenu.Item>
-
-                      <DropdownMenu.Item
-                        onSelect={() => router.push('/settings')}
-                        className={`flex items-center w-full px-4 py-2 text-sm outline-none cursor-pointer ${
-                          isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                      >
-                        <Settings className="h-4 w-4 mr-3" />
-                        <span>Account Settings</span>
-                      </DropdownMenu.Item>
-
-                      <DropdownMenu.Item
-                        onSelect={() => router.push('/favorites')}
-                        className={`flex items-center w-full px-4 py-2 text-sm outline-none cursor-pointer ${
-                          isDark ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                        }`}
-                      >
-                        <Heart className="h-4 w-4 mr-3" />
-                        <span>Favorites</span>
-                      </DropdownMenu.Item>
-
-                      <div className={`border-t my-2 transition-colors ${
-                        isDark ? 'border-gray-600' : 'border-gray-200'
-                      }`} />
-
-                      <DropdownMenu.Item
-                        onSelect={() => signOut({ callbackUrl: '/auth/login' })}
-                        className={`flex items-center w-full px-4 py-2 text-sm outline-none cursor-pointer text-red-600 ${
-                          isDark ? 'hover:bg-gray-700' : 'hover:bg-red-50'
-                        }`}
-                      >
-                        <LogOut className="h-4 w-4 mr-3" />
-                        <span>Sign Out</span>
-                      </DropdownMenu.Item>
-                    </div>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
-          </div>
-        </div>
-      </div>
-
         {/* Mobile Welcome Section */}
         <MobileSection title={`Welcome, ${session?.user?.name?.split(' ')[0] || 'User'}!`}>
           <MobileCard className={`transition-all duration-300 ${
@@ -1827,30 +1645,30 @@ function DashboardContent() {
               
               {/* Hide activation message when payment is accepted or membership is active */}
               {stats?.membershipStatus !== 'ACTIVE' && !(paymentBanner && (paymentBanner.status === 'PENDING' || paymentBanner.status === 'ACCEPTED')) && (
-                <div className={`rounded-xl p-4 mt-4 border-l-4 border-orange-500 transition-all duration-300 ${
+                <div className={`rounded-xl p-4 mt-4 border-l-4 transition-all duration-300 ${
                   isDark 
-                    ? 'bg-gradient-to-r from-orange-900/20 to-red-900/20 border-orange-400' 
-                    : 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-500'
+                    ? 'bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border-blue-400' 
+                    : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500'
                 }`}>
                   <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
-                      <AlertTriangle className="h-5 w-5 text-white" />
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-5 w-5 text-white" />
                     </div>
                     <div className="flex-1">
                       <p className={`font-semibold mb-1 ${
-                        isDark ? 'text-orange-300' : 'text-orange-800'
-                      }`}>Account Activation Required</p>
+                        isDark ? 'text-blue-300' : 'text-blue-800'
+                      }`}>Choose Your Membership Plan</p>
                       <p className={`text-sm mb-3 ${
-                        isDark ? 'text-orange-200' : 'text-orange-700'
+                        isDark ? 'text-blue-200' : 'text-blue-700'
                       }`}>
-                        {`Invest PKR ${(stats?.membershipPlan?.price ?? 1000).toLocaleString()} to start earning commissions and unlock all features`}
+                        Select a membership plan that suits your budget and start earning commissions. Plans start from PKR 1,000.
                       </p>
                       <TouchButton 
                         size="sm" 
-                        className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-medium px-4 py-2 rounded-lg shadow-md transition-all duration-200"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium px-4 py-2 rounded-lg shadow-md transition-all duration-200"
                         onClick={() => router.push('/membership')}
                       >
-                        🚀 Activate Now
+                        📋 View Membership Plans
                       </TouchButton>
                     </div>
                   </div>
@@ -2059,25 +1877,25 @@ function DashboardContent() {
 
 
 
-        {/* Mobile Investment CTA - Hide when payment is accepted or membership is active */}
+        {/* Mobile Membership Plan CTA - Hide when payment is accepted or membership is active */}
         {stats?.membershipStatus !== 'ACTIVE' && !(paymentBanner && (paymentBanner.status === 'PENDING' || paymentBanner.status === 'ACCEPTED')) && (
-          <MobileSection title="Account Activation">
-            <MobileCard className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+          <MobileSection title="Membership Plans">
+            <MobileCard className={`${isDark ? 'bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border-blue-700' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'}`}>
               <div className="p-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
-                  <CreditCard className="h-6 w-6 text-white" />
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center mx-auto mb-3">
+                  <Crown className="h-6 w-6 text-white" />
                 </div>
                 <h3 className={`text-lg font-bold mb-2 transition-colors ${
                   isDark ? 'text-white' : 'text-gray-900'
-                } !important`}>Activate Your Account</h3>
+                } !important`}>Choose Your Plan</h3>
                 <p className={`text-sm mb-4 transition-colors ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
-                  {`Invest PKR ${(stats?.membershipPlan?.price ?? 1000).toLocaleString()} to unlock all features and start earning commissions.`}
+                  Select a membership plan that fits your budget and start your earning journey. Multiple options available starting from PKR 1,000.
                 </p>
                 <TouchButton
                   onClick={() => router.push('/membership')}
-                  className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold"
+                  className={`w-full ${isDark ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'} text-white font-semibold`}
                 >
-                  {`Activate Now - PKR ${(stats?.membershipPlan?.price ?? 1000).toLocaleString()}`}
+                  View All Plans
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </TouchButton>
               </div>

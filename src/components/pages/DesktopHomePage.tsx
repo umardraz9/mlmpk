@@ -568,9 +568,17 @@ const DesktopHomePage = memo(({
                     </span>
                   </Button>
                   <Button 
+                    onClick={() => router.push('/auth/login')}
+                    variant="outline"
+                    className="px-8 py-6 text-lg font-semibold border-2 sm:hidden"
+                  >
+                    <Play className="mr-2 h-5 w-5" />
+                    Login
+                  </Button>
+                  <Button 
                     onClick={() => router.push('/about')}
                     variant="outline"
-                    className="px-8 py-6 text-lg font-semibold border-2"
+                    className="px-8 py-6 text-lg font-semibold border-2 hidden sm:flex"
                   >
                     <Play className="mr-2 h-5 w-5" />
                     Watch How It Works

@@ -26,7 +26,7 @@ async function calculateCommissionBreakdown(userId: string, directReferrals: Arr
   for (const referral of directReferrals) {
     if (referral.membershipStatus === 'ACTIVE') {
       // Calculate commission based on referral's plan
-      const referralPlan = await resolvePlanByName(prisma, referral.membershipPlan || 'BASIC');
+      const referralPlan = await resolvePlanByName(null, referral.membershipPlan || 'BASIC');
       if (referralPlan) {
         breakdown.level1 += referralPlan.price * COMMISSION_RATES.level1;
       }
@@ -36,14 +36,15 @@ async function calculateCommissionBreakdown(userId: string, directReferrals: Arr
   // Level 2-5: Indirect referrals (simplified calculation)
   // In a real system, you'd traverse the referral tree
   // For now, we'll calculate based on existing referral earnings
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { referralEarnings: true }
-  });
+  const { data: userData } = await supabase
+    .from('users')
+    .select('referralEarnings')
+    .eq('id', userId)
+    .single();
 
-  if (user?.referralEarnings) {
+  if (userData?.referralEarnings) {
     // Distribute referral earnings across levels (approximation)
-    const totalReferralEarnings = user.referralEarnings;
+    const totalReferralEarnings = userData.referralEarnings;
     breakdown.level2 = totalReferralEarnings * 0.25; // 25% of total referral earnings
     breakdown.level3 = totalReferralEarnings * 0.15; // 15% of total referral earnings
     breakdown.level4 = totalReferralEarnings * 0.08; // 8% of total referral earnings
@@ -94,63 +95,43 @@ export async function GET(_request: NextRequest) {
     
     // Try by ID first
     if (session.user.id) {
-      user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          referralCode: true,
-          balance: true,
-          totalEarnings: true,
-          pendingCommission: true,
-          availableVoucherPkr: true,
-          isActive: true,
-          isAdmin: true,
-          sponsorId: true,
-          createdAt: true,
-          membershipPlan: true,
-          membershipStatus: true,
-          membershipStartDate: true,
-          membershipEndDate: true,
-          earningsContinueUntil: true,
-          taskEarnings: true,
-          referralEarnings: true,
-          dailyTasksCompleted: true,
-          lastTaskCompletionDate: true
-        },
-      });
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select(`
+          id, name, email, referralCode, balance, totalEarnings, 
+          pendingCommission, availableVoucherPkr, isActive, isAdmin, 
+          sponsorId, createdAt, membershipPlan, membershipStatus, 
+          membershipStartDate, membershipEndDate, earningsContinueUntil, 
+          taskEarnings, referralEarnings, dailyTasksCompleted, 
+          lastTaskCompletionDate
+        `)
+        .eq('id', session.user.id)
+        .single();
+      
+      if (!error && userData) {
+        user = userData;
+      }
       console.log('📊 API: User lookup by ID result:', user ? 'Found' : 'Not found');
     }
     
     // Fallback to email if ID lookup failed
     if (!user && session.user.email) {
-      user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          referralCode: true,
-          balance: true,
-          totalEarnings: true,
-          pendingCommission: true,
-          availableVoucherPkr: true,
-          isActive: true,
-          isAdmin: true,
-          sponsorId: true,
-          createdAt: true,
-          membershipPlan: true,
-          membershipStatus: true,
-          membershipStartDate: true,
-          membershipEndDate: true,
-          earningsContinueUntil: true,
-          taskEarnings: true,
-          referralEarnings: true,
-          dailyTasksCompleted: true,
-          lastTaskCompletionDate: true
-        },
-      });
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select(`
+          id, name, email, referralCode, balance, totalEarnings, 
+          pendingCommission, availableVoucherPkr, isActive, isAdmin, 
+          sponsorId, createdAt, membershipPlan, membershipStatus, 
+          membershipStartDate, membershipEndDate, earningsContinueUntil, 
+          taskEarnings, referralEarnings, dailyTasksCompleted, 
+          lastTaskCompletionDate
+        `)
+        .eq('email', session.user.email)
+        .single();
+      
+      if (!error && userData) {
+        user = userData;
+      }
       console.log('📊 API: User lookup by email result:', user ? 'Found' : 'Not found');
     }
 
@@ -166,17 +147,10 @@ export async function GET(_request: NextRequest) {
     console.log('📊 API: User found:', { id: user.id, email: user.email, name: user.name });
 
     // Count referrals and calculate commissions
-    const directReferrals = await prisma.user.findMany({
-      where: { referredBy: user.referralCode },
-      select: {
-        id: true,
-        name: true,
-        membershipStatus: true,
-        membershipPlan: true,
-        balance: true,
-        createdAt: true
-      }
-    });
+    const { data: directReferrals = [], error: referralError } = await supabase
+      .from('users')
+      .select('id, name, membershipStatus, membershipPlan, balance, createdAt')
+      .eq('referredBy', user.referralCode);
 
     const totalReferrals = directReferrals.length;
 
@@ -185,17 +159,17 @@ export async function GET(_request: NextRequest) {
     if (user.membershipPlan) {
       const normalizedPlan = (user.membershipPlan || '').toUpperCase();
       if (normalizedPlan) {
-        plan = await prisma.membershipPlan.findFirst({
-          where: {
-            OR: [
-              { name: normalizedPlan },
-              { name: user.membershipPlan }
-            ]
-          }
-        });
-        if (!plan) {
+        const { data: planData } = await supabase
+          .from('membershipPlans')
+          .select('*')
+          .or(`name.eq.${normalizedPlan},name.eq.${user.membershipPlan}`)
+          .single();
+        
+        if (planData) {
+          plan = planData;
+        } else {
           // Fallback to default plan definitions when DB has no plans
-          plan = await resolvePlanByName(prisma as any, user.membershipPlan);
+          plan = await resolvePlanByName(null, user.membershipPlan);
         }
       }
     }
@@ -222,12 +196,11 @@ export async function GET(_request: NextRequest) {
     // Compute today's task completions
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const completionsToday = await prisma.taskCompletion.count({
-      where: {
-        userId: session.user.id,
-        completedAt: { gte: today }
-      }
-    });
+    const { count: completionsToday = 0 } = await supabase
+      .from('taskCompletions')
+      .select('*', { count: 'exact', head: true })
+      .eq('userId', session.user.id)
+      .gte('completedAt', today.toISOString());
 
     // Earning period logic based on referrals:
     // Basic Plan: 
