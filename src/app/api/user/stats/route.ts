@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/session';
-import { db as prisma } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { resolvePlanByName } from '@/lib/plans';
 
 // Commission rates for 5-level referral system
@@ -353,39 +353,29 @@ export async function GET(_request: NextRequest) {
   } catch (error) {
     console.error('Error fetching user stats:', error);
     
-    // Return demo data with correct voucher balance when API fails
+    // Return safe default data for new users (NO FREE PLANS!)
     return NextResponse.json({
-      totalEarnings: 610,
-      voucherBalance: 1000, // Standard plan voucher
-      totalReferrals: 1,
-      directReferrals: 1,
-      hasInvested: true,
+      totalEarnings: 0,
+      voucherBalance: 0, // No free vouchers
+      totalReferrals: 0,
+      directReferrals: 0,
+      hasInvested: false, // User has NOT invested
       isActive: true,
-      referralCode: 'MCN123456',
+      referralCode: '',
       commissionBreakdown: {
-        level1: 600,
+        level1: 0,
         level2: 0,
         level3: 0,
         level4: 0,
         level5: 0
       },
-      membershipStatus: 'ACTIVE',
-      membershipPlan: {
-        id: '1',
-        name: 'STANDARD',
-        displayName: 'Standard Plan',
-        price: 3000,
-        dailyTaskEarning: 150,
-        maxEarningDays: 30,
-        extendedEarningDays: 60,
-        minimumWithdrawal: 4000,
-        voucherAmount: 1000
-      },
-      membershipStartDate: new Date().toISOString(),
-      membershipEndDate: new Date(Date.now() + (45 * 24 * 60 * 60 * 1000)).toISOString(),
-      dailyEarningsToday: 30,
-      totalTaskEarnings: 10,
-      earningDaysRemaining: 45
+      membershipStatus: 'INACTIVE', // User must pay to activate
+      membershipPlan: null, // No plan until payment
+      membershipStartDate: null,
+      membershipEndDate: null,
+      dailyEarningsToday: 0,
+      totalTaskEarnings: 0,
+      earningDaysRemaining: 0
     });
   }
 }

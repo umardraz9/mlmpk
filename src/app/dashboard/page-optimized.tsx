@@ -241,38 +241,29 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching user stats:', error);
+      // Return safe default data for new users (NO FREE PLANS!)
       setStats({
-        totalEarnings: 610,
-        voucherBalance: 1000,
-        totalReferrals: 1,
-        directReferrals: 1,
-        hasInvested: true,
+        totalEarnings: 0,
+        voucherBalance: 0, // No free vouchers
+        totalReferrals: 0,
+        directReferrals: 0,
+        hasInvested: false, // User has NOT invested
         isActive: true,
-        referralCode: 'MCN' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        referralCode: '',
         commissionBreakdown: {
-          level1: 600,
+          level1: 0,
           level2: 0,
           level3: 0,
           level4: 0,
           level5: 0
         },
-        membershipPlan: {
-          id: '1',
-          name: 'STANDARD',
-          displayName: 'Standard Plan',
-          price: 3000,
-          dailyTaskEarning: 150,
-          maxEarningDays: 30,
-          extendedEarningDays: 60,
-          minimumWithdrawal: 4000,
-          voucherAmount: 1000
-        },
-        membershipStatus: 'ACTIVE',
-        membershipStartDate: new Date().toISOString(),
-        membershipEndDate: new Date(Date.now() + (45 * 24 * 60 * 60 * 1000)).toISOString(),
-        dailyEarningsToday: 30,
-        totalTaskEarnings: 10,
-        earningDaysRemaining: 45
+        membershipPlan: null, // No plan until payment
+        membershipStatus: 'INACTIVE', // User must pay to activate
+        membershipStartDate: null,
+        membershipEndDate: null,
+        dailyEarningsToday: 0,
+        totalTaskEarnings: 0,
+        earningDaysRemaining: 0
       });
     } finally {
       setLoading(false);
