@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { db as prisma } from '@/lib/db';
+import { getServerSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(_req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        bio: true,
-        image: true,
-        coverImage: true,
-        location: true,
-        referralCode: true,
-        createdAt: true,
-      },
-    });
+    const { data: user, error } = await supabase
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        phone,
+        bio,
+        image,
+        coverImage,
+        address,
+        referralCode,
+        createdAt
+      `)
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user) {
+    if (error || !user) {
+      console.error('Error fetching user:', error);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -38,14 +39,14 @@ export async function GET(_req: NextRequest) {
       bio: user.bio || '',
       image: user.image || '',
       coverImage: user.coverImage || '',
-      address: (user as any).address || user.location || '',
-      referralCode: user.referralCode || (session as any)?.user?.referralCode || '',
-      joinDate: user.createdAt ? user.createdAt.toISOString() : '',
+      address: user.address || '',
+      referralCode: user.referralCode || session?.user?.referralCode || '',
+      joinDate: user.createdAt || '',
     };
 
     return NextResponse.json({ user: mapped });
-  } catch (error: any) {
+  } catch (error) {
     console.error('GET /api/profile error:', error);
-    return NextResponse.json({ error: error?.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

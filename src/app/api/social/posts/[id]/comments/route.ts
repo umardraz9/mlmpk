@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from '@/lib/session'
 import { db as prisma } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+
 import { notificationService } from '@/lib/notifications'
 
 // GET - Fetch comments for a post with enhanced features
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession()
     const { id: postId } = await params
     
     if (!session?.user?.id) {
@@ -125,7 +125,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession()
     const { id: postId } = await params
     
     if (!session?.user?.id) {

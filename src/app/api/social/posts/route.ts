@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db as prisma } from '@/lib/db'
-import { authOptions } from '@/lib/auth'
-// @ts-expect-error - NextAuth getServerSession import issue
-import { getServerSession } from 'next-auth'
+import { getServerSession } from '@/lib/session'
 import fs from 'fs'
 import path from 'path'
 
 // GET - Fetch social posts with pagination and enhanced features
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -266,7 +264,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new social post with enhanced features
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({

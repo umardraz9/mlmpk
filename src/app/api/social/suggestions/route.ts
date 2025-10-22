@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from '@/lib/session'
 // @ts-expect-error - NextAuth getServerSession import issue
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+;
+;
 import { db as prisma } from '@/lib/db';
 
 // GET /api/social/suggestions - Get user suggestions (active users with posts)
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     const currentUserId = session?.user?.id;
 
     // Find active users (users who have created any posts)
