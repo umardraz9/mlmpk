@@ -33,6 +33,12 @@ export function useCustomSession(): CustomSession {
   useEffect(() => {
     const checkSession = () => {
       try {
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+          setSession({ data: null, status: 'unauthenticated' });
+          return;
+        }
+
         // Get the session cookie
         const cookies = document.cookie.split(';');
         const sessionCookie = cookies.find(cookie => 
@@ -90,6 +96,11 @@ export function useCustomSession(): CustomSession {
 
 // Custom signOut function
 export const customSignOut = (options?: { callbackUrl?: string }) => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
   // Clear the session cookie
   document.cookie = 'mlmpk-session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   
