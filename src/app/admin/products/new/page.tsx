@@ -20,34 +20,6 @@ import Link from 'next/link';
 export default function NewProductPage() {
   const { data: session } = useSession();
   const router = useRouter();
-
-  // Check if user is admin
-  // Show loading while session is being fetched
-  if (!session) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if user is admin
-  if (!(session.user as any)?.isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-6">You don&apos;t have permission to access this page.</p>
-          <Button onClick={() => router.push('/dashboard')} className="w-full">
-            Go to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
   
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
@@ -353,7 +325,7 @@ export default function NewProductPage() {
         const product = await response.json();
         setNotice({ type: 'success', message: 'Product created successfully!' });
         setTimeout(() => {
-          router.push(`/admin/products/${product.id}`);
+          router.push('/admin/products');
         }, 1500);
       } else {
         const error = await response.json();
@@ -367,12 +339,28 @@ export default function NewProductPage() {
     }
   };
 
-  if (!session?.user || !(session.user as any).isAdmin) {
+  // Show loading while session is being fetched
+  if (!session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user is admin
+  if (!(session.user as any)?.isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
+          <p className="text-gray-600 mb-6">You don&apos;t have permission to access this page.</p>
+          <Button onClick={() => router.push('/dashboard')} className="w-full">
+            Go to Dashboard
+          </Button>
         </div>
       </div>
     );
@@ -504,14 +492,12 @@ export default function NewProductPage() {
                     </Label>
                   </div>
                   <div className="relative">
-                    <div className="border-2 border-teal-200 focus-within:border-teal-500 rounded-xl bg-white/70 backdrop-blur-sm transition-all duration-300 overflow-hidden">
-                      <TipTapEditor
-                        value={formData.description}
-                        onChange={(value) => handleInputChange('description', value)}
-                        placeholder="📝 Write a compelling product description. Highlight features, specifications, and benefits."
-                        className="min-h-[24rem]"
-                      />
-                    </div>
+                    <TipTapEditor
+                      value={formData.description}
+                      onChange={(value) => handleInputChange('description', value)}
+                      placeholder="📝 Write a compelling product description. Highlight features, specifications, and benefits."
+                      className="min-h-[24rem]"
+                    />
                     <div className="absolute bottom-4 right-4 flex items-center gap-2">
                       <div className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-gray-600 border border-gray-200">
                         {charCount} characters

@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
+import { requireAuth } from '@/lib/session'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { logger } from '@/lib/logger'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requireAuth()
     
     if (!session?.user?.id) {
       return NextResponse.json({ 
@@ -23,7 +21,7 @@ export async function POST(request: NextRequest) {
     const type = data.get('type') as string || 'image' // 'image', 'video', or 'audio'
     
     if (!file) {
-      logger.warn('Upload attempt without file', { userId: session.user.id }, 'UPLOAD')
+      console.warn('Upload attempt without file', { userId: session.user.id })
       return NextResponse.json({ 
         error: 'No file uploaded', 
         message: 'Please select a file to upload' 
@@ -32,7 +30,7 @@ export async function POST(request: NextRequest) {
     
     // Additional security: Validate that the file is actually a file
     if (!(file instanceof File)) {
-      logger.warn('Invalid file object in upload', { userId: session.user.id }, 'UPLOAD')
+      console.warn('Invalid file object in upload', { userId: session.user.id })
       return NextResponse.json({ 
         error: 'Invalid file', 
         message: 'The uploaded object is not a valid file' 
@@ -151,12 +149,12 @@ export async function POST(request: NextRequest) {
       type === 'audio' ? 'audio' : 'files'
     const publicUrl = `/uploads/${folder}/${session.user.id}/${filename}`
     
-    logger.info('File uploaded successfully', { 
+    console.log('File uploaded successfully', { 
       userId: session.user.id, 
       filename, 
       fileSize: file.size, 
       type: file.type 
-    }, 'UPLOAD')
+    })
 
     return NextResponse.json({
       success: true,
@@ -179,7 +177,7 @@ export async function POST(request: NextRequest) {
 // GET - List user's uploaded files
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requireAuth()
     
     if (!session?.user?.id) {
       return NextResponse.json({ 

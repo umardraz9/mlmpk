@@ -41,50 +41,78 @@ interface TipTapEditorProps {
 
 export default function TipTapEditor({ value, onChange, placeholder, className }: TipTapEditorProps) {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const editor = useEditor({
-    // Avoid SSR hydration mismatches in Next.js
     immediatelyRender: false,
-    editable: mounted,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4] },
+        heading: { levels: [1, 2, 3] },
         bulletList: { keepMarks: true, keepAttributes: false },
         orderedList: { keepMarks: true, keepAttributes: false },
       }),
       Underline,
-      Link.configure({ openOnClick: true, autolink: true, linkOnPaste: true }),
+      Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
       Image.configure({ HTMLAttributes: { class: 'max-w-full h-auto' } }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder: placeholder || 'Write something amazing…' }),
+      Placeholder.configure({ 
+        placeholder: placeholder || 'Start typing your product description...',
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: false,
+      }),
     ],
-    content: value || '',
+    content: value || '<p></p>',
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
+      const html = editor.getHTML()
+      onChange(html)
     },
     editorProps: {
       attributes: {
-        class:
-          'prose prose-sm sm:prose lg:prose-lg xl:prose-lg focus:outline-none min-h-[24rem] p-4',
+        class: 'prose max-w-none focus:outline-none min-h-[20rem] p-4 text-gray-900 leading-relaxed',
+        style: 'white-space: pre-wrap;'
       },
     },
-  })
-
-  // Sync external value changes into editor
-  useEffect(() => {
-    if (!editor) return
-    const current = editor.getHTML()
-    if ((value || '') !== current) {
-      editor.commands.setContent(value || '', { emitUpdate: false })
+    onCreate: ({ editor }) => {
+      // Ensure editor is focusable
+      editor.view.dom.setAttribute('contenteditable', 'true')
+      editor.view.dom.setAttribute('tabindex', '0')
     }
-  }, [value, editor])
+  }, [placeholder])
 
-  if (!mounted || !editor) {
+  // Sync external value changes
+  useEffect(() => {
+    if (editor && mounted) {
+      const currentContent = editor.getHTML()
+      if (value !== currentContent) {
+        editor.commands.setContent(value || '<p></p>', { emitUpdate: false })
+      }
+    }
+  }, [value, editor, mounted])
+
+  if (!mounted) {
     return (
       <div className={cn('w-full', className)}>
-        <div className="flex flex-wrap gap-1 p-2 border-b bg-white/70 backdrop-blur-sm rounded-t-xl" />
-        <div className="border-2 border-indigo-200 rounded-b-xl bg-white/70 backdrop-blur-sm min-h-[12rem]" />
+        <div className="flex flex-wrap gap-1 p-2 border-b bg-white/70 backdrop-blur-sm rounded-t-xl">
+          <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-9 w-20 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="border-2 border-teal-200 rounded-b-xl bg-white/70 backdrop-blur-sm min-h-[20rem] flex items-center justify-center">
+          <div className="text-gray-500">Loading editor...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!editor) {
+    return (
+      <div className={cn('w-full', className)}>
+        <div className="border-2 border-red-200 rounded-xl bg-red-50 p-4 text-center">
+          <div className="text-red-600">Editor failed to load. Please refresh the page.</div>
+        </div>
       </div>
     )
   }
@@ -117,7 +145,7 @@ export default function TipTapEditor({ value, onChange, placeholder, className }
       onClick={onClick}
       className={cn(
         'inline-flex items-center justify-center h-9 px-2 rounded-md text-sm border transition-colors',
-        active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        active ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
       )}
     >
       {children}
@@ -193,8 +221,12 @@ export default function TipTapEditor({ value, onChange, placeholder, className }
           <Eraser className="w-4 h-4" />
         </Button>
       </div>
-      <div className="border-2 border-indigo-200 rounded-b-xl bg-white/70 backdrop-blur-sm focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/20">
-        <EditorContent editor={editor} />
+      <div className="border-2 border-teal-200 rounded-b-xl bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all duration-200">
+        <EditorContent 
+          editor={editor} 
+          className="min-h-[20rem] cursor-text"
+          onClick={() => editor?.commands.focus()}
+        />
       </div>
     </div>
   )

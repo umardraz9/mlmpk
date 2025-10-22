@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { db as prisma } from '@/lib/db';
-import type { Session } from 'next-auth';
+import { getSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 // GET - Get user's orders
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions) as Session | null;
+    const session = await getSession();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,35 +18,10 @@ export async function GET(request: NextRequest) {
     
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = { userId: session.user.id as string };
-    if (status) {
-      where.status = status;
-    }
-
-    const [orders, totalCount] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                  images: true
-                }
-              }
-            }
-          }
-        }
-      }),
-      prisma.order.count({ where })
-    ]);
+    // Mock implementation - return empty orders for now
+    // TODO: Implement Supabase orders table
+    const orders: any[] = [];
+    const totalCount = 0;
 
     // Parse product images
     const ordersWithParsedImages = orders.map(order => ({
