@@ -116,11 +116,16 @@ export async function POST(request: NextRequest) {
       if (!existsSync(userDir)) {
         await mkdir(userDir, { recursive: true })
       }
-    } catch (dirError) {
-      console.error('Directory creation error:', dirError)
+    } catch (dirError: any) {
+      console.error('Directory creation error:', {
+        message: dirError?.message,
+        code: dirError?.code,
+        path: userDir
+      })
       return NextResponse.json({ 
         error: 'Failed to create upload directory', 
-        message: 'Please try again later'
+        message: 'Please try again later',
+        details: dirError?.message
       }, { status: 500 })
     }
 
@@ -133,12 +138,20 @@ export async function POST(request: NextRequest) {
 
     // Save file
     try {
+      console.log('Writing file to:', filepath)
       await writeFile(filepath, buffer)
-    } catch (writeError) {
-      console.error('File write error:', writeError)
+      console.log('File written successfully')
+    } catch (writeError: any) {
+      console.error('File write error:', {
+        message: writeError?.message,
+        code: writeError?.code,
+        path: filepath,
+        bufferSize: buffer.length
+      })
       return NextResponse.json({ 
         error: 'Failed to save file', 
-        message: 'Please try again later'
+        message: 'Please try again later',
+        details: writeError?.message
       }, { status: 500 })
     }
 
@@ -165,11 +178,17 @@ export async function POST(request: NextRequest) {
       message: 'File uploaded successfully'
     })
 
-  } catch (error) {
-    console.error('File upload error:', error)
+  } catch (error: any) {
+    console.error('File upload error:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name
+    })
     return NextResponse.json({ 
       error: 'Failed to upload file',
-      message: 'An unexpected error occurred during upload. Please try again later.'
+      message: 'An unexpected error occurred during upload. Please try again later.',
+      details: error?.message || 'Unknown error'
     }, { status: 500 })
   }
 }

@@ -166,15 +166,21 @@ export default function NewProductPage() {
 
           if (response.ok) {
             const data = await response.json();
+            console.log('Image uploaded successfully:', { fileName: file.name, url: data.url });
             return { preview, url: data.url, success: true, fileName: file.name };
           } else {
             const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+            console.error('Image upload failed:', { 
+              fileName: file.name, 
+              status: response.status,
+              error: errorData 
+            });
             return { 
               preview, 
               url: '', 
               success: false, 
               fileName: file.name, 
-              error: errorData.message || `HTTP ${response.status}: ${response.statusText}` 
+              error: errorData.details || errorData.message || `HTTP ${response.status}: ${response.statusText}` 
             };
           }
         } catch (previewError) {
@@ -205,6 +211,7 @@ export default function NewProductPage() {
       
       if (failedUploads.length > 0) {
         const errorMessages = failedUploads.map(f => `${f.fileName}: ${f.error}`).join('; ');
+        console.error('Failed uploads:', failedUploads);
         setNotice({ 
           type: 'error', 
           message: `Failed to upload ${failedUploads.length} image(s). ${errorMessages}` 
@@ -212,7 +219,8 @@ export default function NewProductPage() {
       }
     } catch (error) {
       console.error('Upload error:', error);
-      setNotice({ type: 'error', message: 'Failed to upload images. Please try again.' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload images. Please try again.';
+      setNotice({ type: 'error', message: errorMessage });
     } finally {
       setIsUploading(false);
       // Clear the input so the same files can be selected again if needed
