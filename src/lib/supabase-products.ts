@@ -106,52 +106,74 @@ export async function getProduct(id: string) {
 
 // Create new product
 export async function createProduct(productData: Partial<Product>) {
-  // Generate slug from name
-  const slug = productData.name
-    ? productData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-    : '';
+  try {
+    // Generate slug from name
+    const slug = productData.name
+      ? productData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      : '';
 
-  const { data, error } = await supabase
-    .from('products')
-    .insert([{
+    // Generate unique product ID
+    const productId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    console.log('Inserting product into Supabase:', {
+      id: productId,
       name: productData.name,
       slug,
-      description: productData.description,
-      price: productData.price,
-      comparePrice: productData.comparePrice || null,
-      costPrice: productData.costPrice || null,
-      sku: productData.sku || null,
-      barcode: productData.barcode || null,
-      trackQuantity: productData.trackQuantity || false,
-      quantity: productData.quantity || 0,
-      minQuantity: productData.minQuantity || 0,
-      status: productData.status || 'DRAFT',
-      scheduledAt: productData.scheduledAt || null,
-      images: JSON.stringify(productData.images || []),
-      weight: productData.weight || null,
-      dimensions: productData.dimensions ? JSON.stringify(productData.dimensions) : null,
-      categoryId: productData.categoryId || null,
-      tags: productData.tags ? JSON.stringify(productData.tags) : null,
-      metaTitle: productData.metaTitle || null,
-      metaDescription: productData.metaDescription || null,
-      metaKeywords: productData.metaKeywords || null,
-      views: 0,
-      sales: 0,
-      rating: 0,
-      reviewCount: 0,
-      trending: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }])
-    .select()
-    .single();
+      categoryId: productData.categoryId
+    });
 
-  if (error) {
-    console.error('Error creating product:', error);
-    throw new Error('Failed to create product');
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{
+        id: productId,
+        name: productData.name,
+        slug,
+        description: productData.description,
+        price: productData.price,
+        comparePrice: productData.comparePrice || null,
+        costPrice: productData.costPrice || null,
+        sku: productData.sku || null,
+        barcode: productData.barcode || null,
+        trackQuantity: productData.trackQuantity || false,
+        quantity: productData.quantity || 0,
+        minQuantity: productData.minQuantity || 0,
+        status: productData.status || 'DRAFT',
+        scheduledAt: productData.scheduledAt || null,
+        images: JSON.stringify(productData.images || []),
+        weight: productData.weight || null,
+        dimensions: productData.dimensions ? JSON.stringify(productData.dimensions) : null,
+        categoryId: productData.categoryId || null,
+        tags: productData.tags ? JSON.stringify(productData.tags) : null,
+        metaTitle: productData.metaTitle || null,
+        metaDescription: productData.metaDescription || null,
+        metaKeywords: productData.metaKeywords || null,
+        views: 0,
+        sales: 0,
+        rating: 0,
+        reviewCount: 0,
+        trending: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error creating product:', {
+        code: error.code,
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint
+      });
+      throw new Error(`Failed to create product: ${error.message}`);
+    }
+
+    console.log('Product created successfully:', data?.id);
+    return data;
+  } catch (err: any) {
+    console.error('Error in createProduct function:', err?.message);
+    throw err;
   }
-
-  return data;
 }
 
 // Update product

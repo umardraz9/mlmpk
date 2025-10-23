@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new product (Mock implementation)
+// POST - Create new product
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
@@ -45,39 +45,65 @@ export async function POST(request: NextRequest) {
     
     // Validate required fields
     if (!data.name || !data.description || !data.price || !data.categoryId) {
+      console.warn('Missing required fields:', { name: !!data.name, description: !!data.description, price: !!data.price, categoryId: !!data.categoryId });
       return NextResponse.json({ 
         error: 'Missing required fields: name, description, price, categoryId' 
       }, { status: 400 });
     }
 
-    // Create product in Supabase
-    const newProduct = await createProduct({
+    console.log('Creating product with data:', {
       name: data.name,
-      description: data.description,
-      price: parseFloat(data.price),
-      comparePrice: data.comparePrice ? parseFloat(data.comparePrice) : null,
-      costPrice: data.costPrice ? parseFloat(data.costPrice) : null,
-      sku: data.sku || null,
-      barcode: data.barcode || null,
-      trackQuantity: data.trackQuantity || false,
-      quantity: data.trackQuantity ? parseInt(data.quantity) || 0 : 0,
-      minQuantity: data.trackQuantity ? parseInt(data.minQuantity) || 0 : 0,
-      status: data.status || 'DRAFT',
-      scheduledAt: data.scheduledAt || null,
+      price: data.price,
       categoryId: data.categoryId,
-      weight: data.weight ? parseFloat(data.weight) : null,
-      dimensions: data.dimensions || null,
-      metaTitle: data.metaTitle || null,
-      metaDescription: data.metaDescription || null,
-      metaKeywords: data.metaKeywords || null,
-      images: data.images || [],
-      tags: data.tags || []
+      status: data.status
     });
 
-    console.log('Product created in Supabase:', newProduct);
-    return NextResponse.json(newProduct, { status: 201 });
-  } catch (error) {
-    console.error('Error creating product:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    try {
+      // Create product in Supabase
+      const newProduct = await createProduct({
+        name: data.name,
+        description: data.description,
+        price: parseFloat(data.price),
+        comparePrice: data.comparePrice ? parseFloat(data.comparePrice) : null,
+        costPrice: data.costPrice ? parseFloat(data.costPrice) : null,
+        sku: data.sku || null,
+        barcode: data.barcode || null,
+        trackQuantity: data.trackQuantity || false,
+        quantity: data.trackQuantity ? parseInt(data.quantity) || 0 : 0,
+        minQuantity: data.trackQuantity ? parseInt(data.minQuantity) || 0 : 0,
+        status: data.status || 'DRAFT',
+        scheduledAt: data.scheduledAt || null,
+        categoryId: data.categoryId,
+        weight: data.weight ? parseFloat(data.weight) : null,
+        dimensions: data.dimensions || null,
+        metaTitle: data.metaTitle || null,
+        metaDescription: data.metaDescription || null,
+        metaKeywords: data.metaKeywords || null,
+        images: data.images || [],
+        tags: data.tags || []
+      });
+
+      console.log('Product created successfully:', newProduct?.id);
+      return NextResponse.json(newProduct, { status: 201 });
+    } catch (dbError: any) {
+      console.error('Database error creating product:', {
+        message: dbError?.message,
+        code: dbError?.code,
+        details: dbError?.details
+      });
+      return NextResponse.json({ 
+        error: 'Failed to create product in database',
+        details: dbError?.message || 'Unknown database error'
+      }, { status: 500 });
+    }
+  } catch (error: any) {
+    console.error('Error in product creation endpoint:', {
+      message: error?.message,
+      stack: error?.stack
+    });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error?.message || 'Unknown error'
+    }, { status: 500 });
   }
 } 
