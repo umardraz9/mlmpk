@@ -1,81 +1,58 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session'
-// @ts-expect-error - NextAuth getServerSession import issue
-;
-;
-import { db as prisma } from '@/lib/db';
+import { getSession } from '@/lib/session';
 
-// GET /api/social/suggestions - Get user suggestions (active users with posts)
+// GET /api/social/suggestions - Get user suggestions (demo data)
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getSession();
     const currentUserId = session?.user?.id;
 
-    // Find active users (users who have created any posts)
-    const activeUsers = await prisma.socialPost.findMany({
-      where: {
-        status: 'ACTIVE',
-        ...(currentUserId && { authorId: { not: currentUserId } })
-      },
-      select: {
-        authorId: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            referralCode: true,
-            membershipPlan: true,
-            createdAt: true
-          }
-        }
-      },
-      distinct: ['authorId'],
-      take: 20,
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    // Get unique users from posts
-    const users = activeUsers.map(p => p.author);
-
-    // If no active users found, get any users from database
-    let finalUsers = users;
-    if (users.length === 0) {
-      finalUsers = await prisma.user.findMany({
-        where: {
-          ...(currentUserId && { id: { not: currentUserId } }),
-          isActive: true
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-          referralCode: true,
-          membershipPlan: true,
-          createdAt: true
-        },
-        take: 10,
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+    if (!currentUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Transform to match expected format
-    const suggestions = finalUsers.slice(0, 10).map(user => ({
-      id: user.id,
-      name: user.name || 'User',
-      username: user.referralCode || user.email?.split('@')[0] || 'user',
-      image: user.image || '/api/placeholder/150/150',
-      bio: `${user.membershipPlan || 'Member'}`,
-      createdAt: user.createdAt.toISOString(),
-      mutualFriends: 0, // TODO: Calculate actual mutual friends
-      isFollowing: false
-    }));
+    // Return demo suggestions
+    const suggestions = [
+      {
+        id: 'user-2',
+        name: 'Ahmed Khan',
+        username: '@ahmedkhan',
+        image: '/api/placeholder/50/50',
+        bio: 'MLM Enthusiast | Team Leader',
+        membershipPlan: 'PREMIUM',
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        totalPosts: 24,
+        level: 3,
+        mutualFriends: 5,
+        isFollowing: false
+      },
+      {
+        id: 'user-3',
+        name: 'Fatima Ali',
+        username: '@fatimali',
+        image: '/api/placeholder/50/50',
+        bio: 'Digital Marketer | MLM Expert',
+        membershipPlan: 'PREMIUM',
+        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+        totalPosts: 18,
+        level: 2,
+        mutualFriends: 3,
+        isFollowing: false
+      },
+      {
+        id: 'user-4',
+        name: 'Hassan Ali',
+        username: '@hassanali',
+        image: '/api/placeholder/50/50',
+        bio: 'Business Developer | Network Builder',
+        membershipPlan: 'BASIC',
+        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        totalPosts: 12,
+        level: 1,
+        mutualFriends: 2,
+        isFollowing: false
+      }
+    ];
 
     return NextResponse.json({
       success: true,

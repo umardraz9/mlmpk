@@ -54,7 +54,10 @@ export async function getProducts(options: {
   
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' });
+    .select(`
+      *,
+      category:product_categories(id, name, slug, color)
+    `, { count: 'exact' });
 
   // Apply filters
   if (status) {
@@ -236,9 +239,20 @@ export async function createProductCategory(categoryData: {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+  // Generate unique category ID
+  const categoryId = `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  console.log('Creating category:', {
+    id: categoryId,
+    name: categoryData.name,
+    slug,
+    color: categoryData.color
+  });
+
   const { data, error } = await supabase
     .from('product_categories')
     .insert([{
+      id: categoryId,
       name: categoryData.name.trim(),
       slug,
       color: categoryData.color || '#3B82F6',
@@ -249,9 +263,14 @@ export async function createProductCategory(categoryData: {
     .single();
 
   if (error) {
-    console.error('Error creating category:', error);
-    throw new Error('Failed to create category');
+    console.error('Error creating category:', {
+      message: error.message,
+      code: error.code,
+      details: (error as any).details
+    });
+    throw new Error(`Failed to create category: ${error.message}`);
   }
 
+  console.log('Category created successfully:', data?.id);
   return data;
 }

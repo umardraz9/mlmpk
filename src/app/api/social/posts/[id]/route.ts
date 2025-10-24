@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session'
-// @ts-expect-error - NextAuth getServerSession import issue
-;
-;
+import { getSession } from '@/lib/session'
 import { db as prisma } from '@/lib/db';
 
 // PATCH /api/social/posts/[id] - update content (author only)
@@ -11,7 +8,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -54,7 +51,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

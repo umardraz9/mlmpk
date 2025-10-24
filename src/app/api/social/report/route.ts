@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/session'
+import { getSession } from '@/lib/session'
 
 import { db as prisma } from '@/lib/db'
 
@@ -7,7 +7,7 @@ import { db as prisma } from '@/lib/db'
 // In production, persist reports to a DB table and notify moderators.
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }

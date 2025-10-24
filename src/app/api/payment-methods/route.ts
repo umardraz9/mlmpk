@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 
 // GET /api/payment-methods - Get active payment methods for checkout
 export async function GET() {
   try {
     // Load active admin-configured payment settings from DB
-    const settings = await prisma.paymentSettings.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: 'asc' }
-    });
+    const { data: settings, error } = await supabase
+      .from('payment_settings')
+      .select('*')
+      .eq('isActive', true)
+      .order('displayOrder', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching payment settings:', error);
+    }
 
     // Map DB settings to ManualPaymentOptions PaymentMethod shape
-    const dbPaymentMethods = settings.map((s) => {
+    const dbPaymentMethods = (settings || []).map((s) => {
       // Normalize type for UI grouping
       const normalizedType = s.type === 'BANK_ACCOUNT' ? 'BANK_ACCOUNT' : 'MOBILE_WALLET';
       // Human-friendly name

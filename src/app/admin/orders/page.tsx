@@ -663,24 +663,120 @@ export default function AdminOrdersPage() {
       )}
 
       {/* Search and Filters */}
-      <Card>
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <CardHeader>
-          <CardTitle>Search & Filter Orders</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="w-5 h-5 text-blue-600" />
+            Search & Filter Orders
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-2">
+            💡 <strong>Tip:</strong> Search by Order Number (e.g., MCN1761313110137U5AZ), Customer Email, Customer Name, or City
+          </p>
+          
+          {/* Quick Date Filters */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={dateFrom === new Date().toISOString().split('T')[0] && dateTo === new Date().toISOString().split('T')[0] ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0]
+                setDateFrom(today)
+                setDateTo(today)
+                setCurrentPage(1)
+              }}
+              className="text-xs"
+            >
+              📅 Today
+            </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                setDateFrom(yesterday)
+                setDateTo(yesterday)
+                setCurrentPage(1)
+              }}
+              className="text-xs"
+            >
+              📆 Yesterday
+            </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const today = new Date()
+                const weekStart = new Date(today.setDate(today.getDate() - today.getDay()))
+                setDateFrom(weekStart.toISOString().split('T')[0])
+                setDateTo(new Date().toISOString().split('T')[0])
+                setCurrentPage(1)
+              }}
+              className="text-xs"
+            >
+              📊 This Week
+            </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const today = new Date()
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+                setDateFrom(monthStart.toISOString().split('T')[0])
+                setDateTo(new Date().toISOString().split('T')[0])
+                setCurrentPage(1)
+              }}
+              className="text-xs"
+            >
+              📈 This Month
+            </Button>
+            
+            {(dateFrom || dateTo) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                className="text-xs text-red-600 hover:text-red-700"
+              >
+                ✕ Clear Dates
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-blue-600" />
                 <Input
-                  placeholder="Search by order number, customer, tracking..."
+                  placeholder="🔍 Enter Order #, Email, Name, or City..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border-blue-300 focus:border-blue-500"
                 />
               </div>
-              <Button type="submit">Search</Button>
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
             </div>
+            
+            {searchTerm && (
+              <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 text-sm text-blue-800">
+                🔎 Searching for: <strong>"{searchTerm}"</strong>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
@@ -742,11 +838,46 @@ export default function AdminOrdersPage() {
       {/* Orders List */}
       <Card>
         <CardHeader>
-          <CardTitle>Orders ({orders.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5 text-blue-600" />
+            Orders ({orders.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {orders.map((order) => (
+          {orders.length === 0 ? (
+            <div className="text-center py-12">
+              <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">No Orders Found</h3>
+              <p className="text-gray-500 mb-4">
+                {searchTerm 
+                  ? `No orders match your search for "${searchTerm}". Try searching with:` 
+                  : 'No orders available. Try adjusting your filters.'}
+              </p>
+              {searchTerm && (
+                <ul className="text-sm text-gray-600 space-y-1 mb-4">
+                  <li>✓ Order Number (e.g., MCN1761313110137U5AZ)</li>
+                  <li>✓ Customer Email</li>
+                  <li>✓ Customer Name</li>
+                  <li>✓ City</li>
+                </ul>
+              )}
+              <Button 
+                onClick={() => {
+                  setSearchTerm('')
+                  setStatusFilter('')
+                  setPaymentStatusFilter('')
+                  setDateFrom('')
+                  setDateTo('')
+                  setCurrentPage(1)
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Clear All Filters
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {orders.map((order) => (
               <div
                 key={order.id}
                 className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
@@ -781,25 +912,31 @@ export default function AdminOrdersPage() {
                       <Users className="w-4 h-4 mr-2" />
                       Customer
                     </h4>
-                    <div className="flex items-center space-x-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={order.user.avatar || undefined} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(order.user.name, order.user.email)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-sm">
-                          {order.user.name || order.user.username || 'No Name'}
+                    {order.user ? (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={order.user?.avatar || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {getInitials(order.user?.name || null, order.user?.email || null)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium text-sm">
+                              {order.user?.name || order.user?.username || 'No Name'}
+                            </div>
+                            <div className="text-xs text-gray-600">{order.user?.email}</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-600">{order.user.email}</div>
-                      </div>
-                    </div>
-                    {order.user.phone && (
-                      <div className="flex items-center text-xs text-gray-600">
-                        <Phone className="w-3 h-3 mr-1" />
-                        {order.user.phone}
-                      </div>
+                        {order.user?.phone && (
+                          <div className="flex items-center text-xs text-gray-600">
+                            <Phone className="w-3 h-3 mr-1" />
+                            {order.user.phone}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-gray-600">Customer information not available</div>
                     )}
                   </div>
 
@@ -889,7 +1026,8 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session'
-// @ts-expect-error - NextAuth getServerSession import issue
-;
-;
+import { getSession } from '@/lib/session'
 import { db as prisma } from '@/lib/db';
 
 // GET - Get friends list for current user
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getSession();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

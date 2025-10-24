@@ -96,10 +96,17 @@ export default function CartPage() {
       const response = await fetch('/api/cart');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch cart');
+        const errorData = await response.json();
+        console.error('Cart fetch failed:', errorData);
+        throw new Error(errorData.details || 'Failed to fetch cart');
       }
       
       const data = await response.json();
+      console.log('Cart data loaded:', {
+        itemCount: data.cart?.items?.length || 0,
+        items: data.cart?.items,
+        totals: data.totals
+      });
       setCartData(data);
     } catch (error) {
       console.error('Error fetching cart:', error);
@@ -526,6 +533,17 @@ export default function CartPage() {
               Proceed to Checkout
               <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
+            
+            {/* Debug info for disabled button */}
+            {cartItems.length === 0 && (
+              <p className="text-sm text-red-600 text-center">Cart is empty</p>
+            )}
+            {cartItems.length > 0 && cartItems.some(item => !item.product.inStock) && (
+              <p className="text-sm text-red-600 text-center">Some items are out of stock</p>
+            )}
+            {updating !== null && (
+              <p className="text-sm text-yellow-600 text-center">Updating cart...</p>
+            )}
 
             {/* Security Notice */}
             <div className="text-center text-sm text-gray-600">

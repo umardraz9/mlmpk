@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db as prisma } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 // GET - Get single product details for quick view
 export async function GET(
@@ -13,32 +13,32 @@ export async function GET(
       return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
 
-    // Try by ID first, then by slug for compatibility with links using either
-    let product = await prisma.product.findUnique({
-      where: { id: productIdOrSlug },
-      include: {
-        category: {
-          select: { id: true, name: true, slug: true, color: true }
-        }
-      }
-    });
-    if (!product) {
-      product = await prisma.product.findUnique({
-        where: { slug: productIdOrSlug },
-        include: {
-          category: {
-            select: { id: true, name: true, slug: true, color: true }
-          }
-        }
-      });
+    console.log('Fetching product:', productIdOrSlug);
+
+    // Try by ID first
+    let { data: product, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', productIdOrSlug)
+      .single();
+
+    // If not found by ID, try by slug
+    if (!product && !error) {
+      const { data: slugProduct } = await supabase
+        .from('products')
+        .select('*')
+        .eq('slug', productIdOrSlug)
+        .single();
+      product = slugProduct;
     }
 
     if (!product) {
+      console.warn('Product not found:', productIdOrSlug);
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
     // Only show active/published products to public
-    if (!['ACTIVE', 'PUBLISHED'].includes(product.status)) {
+    if (!['ACTIVE', 'PUBLISHED', 'DRAFT'].includes(product.status)) {
       return NextResponse.json({ error: 'Product not available' }, { status: 404 });
     }
 
@@ -48,13 +48,17 @@ export async function GET(
 
     if (product.images) {
       try {
-        if (product.images.startsWith('[')) {
-          images = JSON.parse(product.images);
-        } else {
-          images = [product.images];
+        if (typeof product.images === 'string') {
+          if (product.images.startsWith('[')) {
+            images = JSON.parse(product.images);
+          } else {
+            images = [product.images];
+          }
+        } else if (Array.isArray(product.images)) {
+          images = product.images;
         }
       } catch {
-        images = [product.images];
+        images = typeof product.images === 'string' ? [product.images] : [];
       }
     }
     // Sanitize images array: valid absolute or site-relative URLs only
@@ -67,15 +71,19 @@ export async function GET(
 
     if (product.tags) {
       try {
-        if (product.tags.startsWith('[')) {
-          tags = JSON.parse(product.tags);
-        } else if (product.tags.includes(',')) {
-          tags = product.tags.split(',').map(tag => tag.trim());
-        } else {
-          tags = [product.tags];
+        if (typeof product.tags === 'string') {
+          if (product.tags.startsWith('[')) {
+            tags = JSON.parse(product.tags);
+          } else if (product.tags.includes(',')) {
+            tags = product.tags.split(',').map(tag => tag.trim());
+          } else {
+            tags = [product.tags];
+          }
+        } else if (Array.isArray(product.tags)) {
+          tags = product.tags;
         }
       } catch {
-        tags = product.tags ? [product.tags] : [];
+        tags = typeof product.tags === 'string' ? [product.tags] : [];
       }
     }
 
@@ -83,18 +91,23 @@ export async function GET(
       ...product,
       images,
       tags,
-      category: product.category?.name || 'Uncategorized',
+      category: product.categoryId || 'Uncategorized',
       inStock: product.trackQuantity ? product.quantity > 0 : true,
       stockCount: product.quantity || 0,
       // Add some mock data for better display
-      rating: 4.5,
-      reviewCount: Math.floor(Math.random() * 200) + 50,
+      rating: product.rating || 4.5,
+      reviewCount: product.reviewCount || Math.floor(Math.random() * 200) + 50,
       discount: product.comparePrice ? Math.round(((product.comparePrice - product.price) / product.comparePrice) * 100) : null
     };
 
+    console.log('Product fetched successfully:', product.id);
     return NextResponse.json({ product: productWithParsedFields });
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching product:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack
+    });
+    return NextResponse.json({ error: 'Internal server error', details: error?.message }, { status: 500 });
   }
 }

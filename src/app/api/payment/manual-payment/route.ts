@@ -1,76 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/session';
-import prisma from '@/lib/prisma';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
+    const admin = createServerSupabaseClient();
 
     const formData = await request.formData();
     const paymentProof = formData.get('paymentProof') as File;
-    const paymentMethodId = formData.get('paymentMethodId') as string;
+    const paymentMethodId = (formData.get('paymentMethodId') as string) || null;
+    const paymentMethodName = (formData.get('paymentMethodName') as string) || 'Manual Payment';
     const amount = formData.get('amount') as string;
     const orderId = (formData.get('orderId') as string) || '';
     const orderNumber = (formData.get('orderNumber') as string) || '';
     const providedTxn = (formData.get('transactionId') as string) || '';
 
-    if (!paymentProof || !paymentMethodId || !amount) {
+    if (!paymentProof || !amount) {
       return NextResponse.json({ 
-        error: 'Missing required fields: paymentProof, paymentMethodId, amount' 
+        error: 'Missing required fields: paymentProof, amount' 
       }, { status: 400 });
     }
 
     // Validate payment method from PaymentSettings if present. If missing, allow submission (fallback/default methods)
-    const wallet = await prisma.paymentSettings.findUnique({ where: { id: paymentMethodId } });
+    const { data: wallet, error: walletError } = await admin
+      .from('payment_settings')
+      .select('*')
+      .eq('id', paymentMethodId)
+      .single();
+    if (walletError) {
+      // Non-fatal: allow submission even if lookup fails
+      console.warn('Payment settings lookup failed:', walletError);
+    }
     if (wallet && wallet.isActive === false) {
       return NextResponse.json({ error: 'Inactive payment method' }, { status: 400 });
     }
 
-    // Ensure a corresponding PaymentMethod row exists (for FK compatibility in some DBs)
-    // Only when a PaymentSettings record exists
-    if (wallet) {
-      const normalizedType = wallet.type === 'BANK_ACCOUNT' ? 'BANK_ACCOUNT' : 'MOBILE_WALLET';
-      const pmName = wallet.type === 'JAZZCASH'
-        ? 'JazzCash'
-        : wallet.type === 'EASYPAISA'
-          ? 'EasyPaisa'
-          : wallet.type === 'BANK_ACCOUNT' && wallet.bankName
-            ? `${wallet.bankName} Bank Account`
-            : 'Manual Payment';
-
-      await prisma.paymentMethod.upsert({
-        where: { id: paymentMethodId },
-        update: {
-          name: pmName,
-          type: normalizedType,
-          accountTitle: wallet.accountTitle,
-          accountNumber: wallet.accountNumber,
-          bankName: wallet.bankName ?? undefined,
-          branchCode: wallet.branchCode ?? undefined,
-          iban: wallet.iban ?? undefined,
-          isActive: true,
-          displayOrder: wallet.displayOrder ?? 0,
-          instructions: wallet.instructions ?? undefined,
-        },
-        create: {
-          id: paymentMethodId,
-          name: pmName,
-          type: normalizedType,
-          accountTitle: wallet.accountTitle,
-          accountNumber: wallet.accountNumber,
-          bankName: wallet.bankName ?? undefined,
-          branchCode: wallet.branchCode ?? undefined,
-          iban: wallet.iban ?? undefined,
-          isActive: true,
-          isDefault: false,
-          displayOrder: wallet.displayOrder ?? 0,
-          instructions: wallet.instructions ?? undefined,
-        }
-      });
-    }
+    // If no matching PaymentSetting exists, avoid FK violation by not setting paymentMethodId
+    const resolvedPaymentMethodId = wallet?.id || null;
 
     // Validate file type and size
     if (!paymentProof.type.startsWith('image/')) {
@@ -93,11 +67,11 @@ export async function POST(request: NextRequest) {
 
     // Ensure authenticated user exists in DB (avoid FK violations)
     let userId = session.user.id;
-    const userRecord = await prisma.user.findUnique({ where: { id: userId } });
-    if (!userRecord) {
+    const { data: userById } = await admin.from('users').select('id').eq('id', userId).single();
+    if (!userById) {
       if (session.user.email) {
-        const byEmail = await prisma.user.findUnique({ where: { email: session.user.email } });
-        if (byEmail) {
+        const { data: byEmail } = await admin.from('users').select('id').eq('email', session.user.email).single();
+        if (byEmail?.id) {
           userId = byEmail.id;
         } else {
           return NextResponse.json({ error: 'Authenticated user not found in database' }, { status: 400 });
@@ -126,35 +100,56 @@ export async function POST(request: NextRequest) {
       if (orderId) meta.orderId = orderId;
       if (orderNumber) meta.orderNumber = orderNumber;
     }
+    meta.paymentMethod = paymentMethodName;
 
     // Create manual payment record (align with schema)
-    const manualPayment = await prisma.manualPayment.create({
-      data: {
-        userId,
-        paymentMethodId: paymentMethodId,
-        amount: parseFloat(amount),
-        transactionId: providedTxn || `TXN-${timestamp}`,
-        paymentProof: `/uploads/payments/${fileName}`,
-        status: 'PENDING',
-        ...(Object.keys(meta).length > 0 ? { adminNotes: JSON.stringify(meta) } : {}),
-      },
-    });
+    const paymentId = `mp-${timestamp}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Build payment record - paymentMethodId can be null if no matching payment setting
+    const now = new Date().toISOString();
+    const paymentRecord: Record<string, unknown> = {
+      id: paymentId,
+      userId,
+      paymentMethodId: resolvedPaymentMethodId, // Can be null
+      amount: parseFloat(amount),
+      transactionId: providedTxn || `TXN-${timestamp}`,
+      paymentProof: `/uploads/payments/${fileName}`,
+      status: 'PENDING',
+      adminNotes: Object.keys(meta).length > 0 ? JSON.stringify(meta) : null,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    const { data: manualPayment, error: mpError } = await admin
+      .from('manual_payments')
+      .insert([paymentRecord])
+      .select()
+      .single();
+    if (mpError || !manualPayment) {
+      console.error('Error creating manual payment:', mpError);
+      console.error('Payment record attempted:', paymentRecord);
+      return NextResponse.json({ error: 'Failed to record payment: ' + (mpError?.message || 'Unknown error') }, { status: 500 });
+    }
 
     // Notify admin to review payment
     try {
-      await prisma.notification.create({
-        data: {
+      const { data: admins } = await admin
+        .from('users')
+        .select('id')
+        .or('role.eq.ADMIN,isAdmin.eq.true');
+      if (admins && admins.length > 0) {
+        const notif = admins.map(a => ({
+          id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          userId: a.id,
           title: 'New Order Payment Proof',
           message: `A new manual payment proof was submitted for PKR ${amount}.`,
           type: 'payment',
-          category: 'admin',
-          priority: 'high',
-          role: 'ADMIN',
-          data: JSON.stringify({ paymentId: manualPayment.id, orderId, orderNumber, paymentMethodId }),
-          actionUrl: '/admin/payments',
-          actionText: 'Review Payment',
-        },
-      });
+          read: false,
+          createdAt: new Date().toISOString(),
+          data: JSON.stringify({ paymentId: manualPayment.id, orderId, orderNumber, paymentMethodId })
+        }));
+        await admin.from('notifications').insert(notif);
+      }
     } catch {}
 
     return NextResponse.json({

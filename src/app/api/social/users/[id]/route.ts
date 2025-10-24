@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session'
-;
-;
-import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +10,7 @@ export async function GET(
     const { id } = params;
 
     // Check authentication
-    const session = await getServerSession();
+    const session = await getSession();
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -21,27 +19,14 @@ export async function GET(
     }
 
     // Find user by ID
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        image: true,
-        bio: true,
-        phone: true,
-        location: true,
-        createdAt: true,
-        membershipStatus: true,
-        membershipLevel: true,
-        totalEarnings: true,
-        referralCount: true,
-        lastActive: true,
-      }
-    });
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, name, username, email, image, bio, phone, location, createdAt, membershipStatus, membershipLevel, totalEarnings, referralCount, lastActive')
+      .eq('id', id)
+      .single();
 
-    if (!user) {
+    if (userError || !user) {
+      console.error('User not found:', userError);
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }

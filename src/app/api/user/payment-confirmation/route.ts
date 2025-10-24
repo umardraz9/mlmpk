@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/session';
 
 export async function GET() {
@@ -7,21 +7,32 @@ export async function GET() {
     const session = await requireAuth();
     const userId = session.user.id;
 
-    const paymentConfirmations = await prisma.paymentConfirmation.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
+    const { data: paymentConfirmations } = await supabase
+      .from('payment_confirmations')
+      .select('*')
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false });
 
     // Enrich with membership plan details (membershipPlan stores plan ID string)
     const enriched = await Promise.all(
-      paymentConfirmations.map(async (pc) => {
-        let plan = null as any;
+      (paymentConfirmations || []).map(async (pc: any) => {
+        let plan = null;
         try {
           // Try by ID first
-          plan = await prisma.membershipPlan.findUnique({ where: { id: pc.membershipPlan } });
+          const { data: planById } = await supabase
+            .from('membership_plans')
+            .select('*')
+            .eq('id', pc.membershipPlan)
+            .single();
+          plan = planById;
           if (!plan) {
             // Fallback: treat stored value as plan name
-            plan = await prisma.membershipPlan.findFirst({ where: { name: pc.membershipPlan } });
+            const { data: planByName } = await supabase
+              .from('membership_plans')
+              .select('*')
+              .eq('name', pc.membershipPlan)
+              .single();
+            plan = planByName;
           }
         } catch {}
 
@@ -70,12 +81,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if membership plan exists (accept both plan ID and plan name for flexibility)
-    let membershipPlan = await prisma.membershipPlan.findUnique({
-      where: { id: membershipPlanId }
-    });
+    let { data: membershipPlan } = await supabase
+      .from('membership_plans')
+      .select('*')
+      .eq('id', membershipPlanId)
+      .single();
+    
     if (!membershipPlan) {
-      membershipPlan = await prisma.membershipPlan.findFirst({ where: { name: membershipPlanId } });
+      const { data: planByName } = await supabase
+        .from('membership_plans')
+        .select('*')
+        .eq('name', membershipPlanId)
+        .single();
+      membershipPlan = planByName;
     }
+    
     if (!membershipPlan) {
       return NextResponse.json({
         success: false,
@@ -84,13 +104,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has a pending confirmation for this plan
-    const existingConfirmation = await prisma.paymentConfirmation.findFirst({
-      where: {
-        userId,
-        membershipPlan: membershipPlanId,
-        status: 'PENDING',
-      },
-    });
+    const { data: existingConfirmation } = await supabase
+      .from('payment_confirmations')
+      .select('*')
+      .eq('userId', userId)
+      .eq('membershipPlan', membershipPlanId)
+      .eq('status', 'PENDING')
+      .single();
 
     if (existingConfirmation) {
       return NextResponse.json({
@@ -100,7 +120,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has an active membership
-    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('membershipStatus')
+      .eq('id', userId)
+      .single();
+    
     if (currentUser?.membershipStatus === 'ACTIVE') {
       return NextResponse.json({
         success: false,
@@ -111,9 +136,13 @@ export async function POST(request: NextRequest) {
     // Enforce monthly wallet limit for the selected payment method (PaymentSettings ID)
     // We store the payment method identifier in the paymentConfirmation.paymentMethod string field
     // and use it to aggregate monthly usage per wallet.
-    const setting = await prisma.paymentSettings.findUnique({ where: { id: paymentMethod } });
+    const { data: setting, error: settingError } = await supabase
+      .from('payment_settings')
+      .select('*')
+      .eq('id', paymentMethod)
+      .single();
 
-    if (!setting) {
+    if (settingError || !setting) {
       return NextResponse.json({ success: false, error: 'Invalid payment method' }, { status: 400 });
     }
 
@@ -124,15 +153,14 @@ export async function POST(request: NextRequest) {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
 
-      const agg = await prisma.paymentConfirmation.aggregate({
-        _sum: { amount: true },
-        where: {
-          paymentMethod: paymentMethod,
-          createdAt: { gte: monthStart, lt: nextMonthStart },
-        },
-      });
+      const { data: monthlyPayments } = await supabase
+        .from('payment_confirmations')
+        .select('amount')
+        .eq('paymentMethod', paymentMethod)
+        .gte('createdAt', monthStart.toISOString())
+        .lt('createdAt', nextMonthStart.toISOString());
 
-      const usedThisMonth = agg._sum.amount || 0;
+      const usedThisMonth = (monthlyPayments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
       const wouldBeTotal = usedThisMonth + amountValue;
       if (wouldBeTotal > monthlyLimit) {
         const remaining = Math.max(0, monthlyLimit - usedThisMonth);
@@ -143,35 +171,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const paymentConfirmation = await prisma.paymentConfirmation.create({
-      data: {
+    const { data: paymentConfirmation, error: createError } = await supabase
+      .from('payment_confirmations')
+      .insert({
         userId,
-        membershipPlan: membershipPlanId, // store plan ID in string field
+        membershipPlan: membershipPlanId,
         paymentMethod,
         transactionId,
-        paymentDetails: transactionId, // required by schema
+        paymentDetails: transactionId,
         amount: typeof amount === 'number' ? amount : parseFloat(amount),
         paymentProof: paymentProof || null,
         notes: notes || null,
         status: 'PENDING',
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (createError || !paymentConfirmation) {
+      console.error('Error creating payment confirmation:', createError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create payment confirmation' },
+        { status: 500 }
+      );
+    }
 
     // Create notification for the user (and can be surfaced to admins via admin notifications page)
-    await prisma.notification.create({
-      data: {
-        recipientId: userId,
-        type: 'info',
-        category: 'payment',
-        title: 'Payment Confirmation Submitted',
-        message: `Payment confirmation submitted for ${membershipPlan.displayName} plan. Amount: Rs.${amount}`,
-        data: JSON.stringify({
-          paymentConfirmationId: paymentConfirmation.id,
-          membershipPlanId,
-          amount,
-          transactionId
-        })
-      }
+    await supabase.from('notifications').insert({
+      recipientId: userId,
+      type: 'info',
+      category: 'payment',
+      title: 'Payment Confirmation Submitted',
+      message: `Payment confirmation submitted for ${membershipPlan.displayName} plan. Amount: Rs.${amount}`,
+      data: JSON.stringify({
+        paymentConfirmationId: paymentConfirmation.id,
+        membershipPlanId,
+        amount,
+        transactionId
+      })
     });
 
     return NextResponse.json({

@@ -67,6 +67,11 @@ export async function checkTaskCountryRestriction(request: NextRequest): Promise
  * Returns null if allowed, error response if blocked
  */
 export async function validateTaskAccess(request: NextRequest): Promise<NextResponse | null> {
+  // Development bypass to prevent accidental blocking while testing locally
+  // Set DISABLE_TASK_COUNTRY_BLOCK=1 in env to bypass in any environment
+  if (process.env.NODE_ENV === 'development' || process.env.DISABLE_TASK_COUNTRY_BLOCK === '1') {
+    return null
+  }
   const { isBlocked, response } = await checkTaskCountryRestriction(request)
   return isBlocked ? response! : null
 }

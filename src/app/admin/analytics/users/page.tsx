@@ -145,6 +145,18 @@ export default function UserAnalyticsPage() {
     console.log('Exporting user analytics data...')
   }
 
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-600 mb-4">Failed to load user analytics data</p>
+          <Button onClick={handleRefresh}>Try Again</Button>
+        </div>
+      </div>
+    )
+  }
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -506,8 +518,8 @@ export default function UserAnalyticsPage() {
                       <div className="flex items-center space-x-3">
                         <div className="text-sm font-medium">#{index + 1}</div>
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar} />
-                          <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarImage src={user?.avatar || undefined} />
+                          <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="text-sm font-medium">{user.name}</div>
@@ -605,8 +617,8 @@ export default function UserAnalyticsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src={user.avatar} />
-                      <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                      <AvatarImage src={user?.avatar || undefined} />
+                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="font-medium">{user.name}</div>

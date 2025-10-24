@@ -63,6 +63,7 @@ function generateOrderNumber(paymentId: string, createdAt: string) {
 }
 
 export default function AdminPaymentsPage() {
+  // ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP
   const { data: session, status } = useSession()
   const router = useRouter()
   const [payments, setPayments] = useState<ManualPaymentRequest[]>([])
@@ -76,6 +77,13 @@ export default function AdminPaymentsPage() {
   const [showImageModal, setShowImageModal] = useState(false)
   const [selectedImage, setSelectedImage] = useState('')
   const [actionNotes, setActionNotes] = useState('')
+
+  // Redirect unauthenticated users to admin login
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/admin/login')
+    }
+  }, [status, router])
 
   const user = session?.user as ExtendedUser | undefined
 
@@ -104,31 +112,12 @@ export default function AdminPaymentsPage() {
     }
   }
 
-  // Redirect unauthenticated users to admin login
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/admin/login')
-    }
-  }, [status, router])
-
   // Load payments only when authenticated admin
   useEffect(() => {
     if (status === 'authenticated' && user?.isAdmin) {
       fetchPayments()
     }
   }, [status, user?.isAdmin])
-
-  // Loading state while session or payments are loading
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin session...</p>
-        </div>
-      </div>
-    )
-  }
 
   // Filter payments based on search term and filters
   useEffect(() => {
@@ -159,6 +148,18 @@ export default function AdminPaymentsPage() {
 
     setFilteredPayments(filtered)
   }, [payments, searchTerm, statusFilter, paymentMethodFilter])
+
+  // Loading state while session or payments are loading
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin session...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Get unique payment methods for filter dropdown
   const uniquePaymentMethods = Array.from(new Set(payments.map(p => p?.paymentMethod).filter(Boolean)))

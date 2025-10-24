@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
 export async function GET(_req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -19,8 +19,12 @@ export async function GET(_req: NextRequest) {
         bio,
         image,
         coverImage,
-        address,
+        location,
         referralCode,
+        username,
+        website,
+        totalPoints,
+        membershipPlan,
         createdAt
       `)
       .eq('id', session.user.id)
@@ -39,7 +43,11 @@ export async function GET(_req: NextRequest) {
       bio: user.bio || '',
       image: user.image || '',
       coverImage: user.coverImage || '',
-      address: user.address || '',
+      location: user.location || '',
+      username: user.username || '',
+      website: user.website || '',
+      totalPoints: user.totalPoints || 0,
+      membershipPlan: user.membershipPlan || 'BASIC',
       referralCode: user.referralCode || session?.user?.referralCode || '',
       joinDate: user.createdAt || '',
     };

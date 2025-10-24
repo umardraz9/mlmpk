@@ -1,37 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/session'
-import prisma from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await requireAdmin()
     console.log('Admin access granted:', { user: session.user.email, isAdmin: session.user.isAdmin })
 
-    const manualPayments = await prisma.manualPayment.findMany({
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, phone: true, membershipPlan: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+    const { data: manualPayments, error: paymentsError } = await supabase
+      .from('manual_payments')
+      .select(`
+        *,
+        user:users(id, name, email, phone, membershipPlan)
+      `)
+      .order('createdAt', { ascending: false })
+
+    if (paymentsError) {
+      console.error('Error fetching payments:', paymentsError)
+      return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 })
+    }
 
     // Load payment settings for all referenced method IDs in batch
-    const ids = Array.from(new Set(manualPayments.map(p => p.paymentMethodId).filter(Boolean))) as string[]
-    const settingsList = ids.length
-      ? await prisma.paymentSettings.findMany({ where: { id: { in: ids } } })
-      : []
+    const ids = Array.from(new Set((manualPayments || []).map(p => p.paymentMethodId).filter(Boolean))) as string[]
+    let settingsList: any[] = []
+    if (ids.length > 0) {
+      const { data } = await supabase.from('payment_settings').select('*').in('id', ids)
+      settingsList = data || []
+    }
     const settingsById = new Map(settingsList.map(s => [s.id, s]))
 
     // Optionally resolve approver names based on verifiedBy
-    const approverIds = Array.from(new Set(manualPayments.map(p => p.verifiedBy).filter(Boolean))) as string[]
-    const approvers = approverIds.length
-      ? await prisma.user.findMany({ where: { id: { in: approverIds } }, select: { id: true, name: true, email: true } })
-      : []
+    const approverIds = Array.from(new Set((manualPayments || []).map(p => p.verifiedBy).filter(Boolean))) as string[]
+    let approvers: any[] = []
+    if (approverIds.length > 0) {
+      const { data } = await supabase.from('users').select('id, name, email').in('id', approverIds)
+      approvers = data || []
+    }
     const approverById = new Map(approvers.map(a => [a.id, a]))
 
     // Map to admin UI shape expected by the page
-    const payments = manualPayments.map(p => {
+    const payments = (manualPayments || []).map((p: any) => {
       const s = settingsById.get(p.paymentMethodId)
       const methodName = s
         ? (s.type === 'JAZZCASH' ? 'JazzCash' : s.type === 'EASYPAISA' ? 'EasyPaisa' : s.type === 'BANK_ACCOUNT' ? (s.bankName ? `${s.bankName} Bank` : 'Bank Account') : 'Manual Payment')
@@ -76,136 +84,88 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const adminUser = await prisma.user.findUnique({ where: { email: session.user.email } })
-    if (!adminUser) {
+    const { data: adminUser, error: adminError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', session.user.email)
+      .single()
+
+    if (adminError || !adminUser) {
+      console.error('Admin user not found:', adminError)
       return NextResponse.json({ error: 'Admin user not found' }, { status: 404 })
     }
 
-    const payment = await prisma.manualPayment.findUnique({ where: { id }, include: { user: true } })
-    if (!payment) {
+    const { data: payment, error: paymentError } = await supabase
+      .from('manual_payments')
+      .select(`*, user:users(*)`)
+      .eq('id', id)
+      .single()
+
+    if (paymentError || !payment) {
+      console.error('Payment not found:', paymentError)
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
     }
 
     if (action === 'approve') {
-      await prisma.manualPayment.update({
-        where: { id },
-        data: {
+      const { error: updateError } = await supabase
+        .from('manual_payments')
+        .update({
           status: 'VERIFIED',
-          verifiedAt: new Date(),
+          verifiedAt: new Date().toISOString(),
           verifiedBy: adminUser.id,
-          adminNotes: notes || undefined,
-        }
-      })
+          adminNotes: notes || null,
+        })
+        .eq('id', id)
+
+      if (updateError) {
+        console.error('Error updating payment:', updateError)
+        return NextResponse.json({ error: 'Failed to update payment' }, { status: 500 })
+      }
 
       // If this manual payment is linked to an order payment (transactionId like ORDER-<orderNumber>),
-      // mark the order as PAID and increment paidAmountPkr
+      // mark the order as PAID
       try {
-        const refreshed = await prisma.manualPayment.findUnique({ where: { id }, include: { user: true } })
-        const txn = refreshed?.transactionId || ''
+        const txn = payment?.transactionId || ''
         const maybeOrderNumber = txn.startsWith('ORDER-') ? txn.substring('ORDER-'.length) : ''
         if (maybeOrderNumber) {
-          const order = await prisma.order.findUnique({ where: { orderNumber: maybeOrderNumber } })
-          if (order) {
-            await prisma.order.update({
-              where: { id: order.id },
-              data: {
-                paymentStatus: 'PAID',
-                paidAmountPkr: { increment: refreshed?.amount || 0 },
-                // Optional: append note
-                notes: order.notes ? `${order.notes}\nPayment verified via manual proof ${id}` : `Payment verified via manual proof ${id}`,
-              },
-            })
+          const { data: order } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('orderNumber', maybeOrderNumber)
+            .single()
 
-            // Notify user their order payment was confirmed
-            await prisma.notification.create({
-              data: {
-                title: 'Order Payment Confirmed',
-                message: `Your payment for order ${order.orderNumber} has been verified.`,
-                type: 'success',
-                category: 'order',
-                priority: 'high',
-                recipientId: order.userId,
-                data: JSON.stringify({ orderId: order.id, orderNumber: order.orderNumber, paymentId: id }),
-                actionUrl: `/orders/${order.id}`,
-                actionText: 'View Order',
-              },
-            })
+          if (order) {
+            await supabase
+              .from('orders')
+              .update({
+                paymentStatus: 'PAID',
+                notes: order.notes ? `${order.notes}\nPayment verified via manual proof ${id}` : `Payment verified via manual proof ${id}`,
+              })
+              .eq('id', order.id)
           }
         }
       } catch (e) {
         console.warn('Order payment linking skipped:', e)
       }
 
-      // Attempt to activate user's membership so they can start tasks
-      try {
-        // Load latest user including current plan
-        const user = await prisma.user.findUnique({ where: { id: payment.userId } })
-        let plan = null as any
-        if (user?.membershipPlan) {
-          plan = await prisma.membershipPlan.findUnique({ where: { name: user.membershipPlan } })
-        }
-        if (!plan) {
-          // Choose a default active plan if user has none
-          plan = await prisma.membershipPlan.findFirst({ where: { isActive: true }, orderBy: { price: 'asc' } })
-        }
-
-        const now = new Date()
-        const endDate = plan ? new Date(now.getTime() + (plan.maxEarningDays * 24 * 60 * 60 * 1000)) : null
-
-        await prisma.user.update({
-          where: { id: payment.userId },
-          data: {
-            membershipStatus: 'ACTIVE',
-            tasksEnabled: true,
-            ...(plan ? { membershipPlan: plan.name } : {}),
-            membershipStartDate: now,
-            ...(endDate ? { membershipEndDate: endDate, earningsContinueUntil: endDate } : {}),
-            ...(plan ? { minimumWithdrawal: plan.minimumWithdrawal } : {}),
-          }
-        })
-      } catch (e) {
-        console.warn('Membership activation after approval failed (non-fatal):', e)
-      }
-
-      // Notify user of approval
-      await prisma.notification.create({
-        data: {
-          title: 'Payment Approved',
-          message: `Your manual payment of PKR ${payment.amount} has been approved. Your account will be updated shortly.`,
-          type: 'payment',
-          category: 'user',
-          priority: 'high',
-          recipientId: payment.userId,
-          data: JSON.stringify({ paymentId: payment.id })
-        }
-      })
-
       return NextResponse.json({ success: true })
     }
 
     if (action === 'reject') {
-      await prisma.manualPayment.update({
-        where: { id },
-        data: {
+      const { error: updateError } = await supabase
+        .from('manual_payments')
+        .update({
           status: 'REJECTED',
-          verifiedAt: new Date(),
+          verifiedAt: new Date().toISOString(),
           verifiedBy: adminUser.id,
-          adminNotes: notes || undefined,
-        }
-      })
+          adminNotes: notes || null,
+        })
+        .eq('id', id)
 
-      // Notify user of rejection
-      await prisma.notification.create({
-        data: {
-          title: 'Payment Rejected',
-          message: `Your manual payment of PKR ${payment.amount} has been rejected. Please contact support for assistance.`,
-          type: 'payment',
-          category: 'user',
-          priority: 'high',
-          recipientId: payment.userId,
-          data: JSON.stringify({ paymentId: payment.id, reason: notes })
-        }
-      })
+      if (updateError) {
+        console.error('Error rejecting payment:', updateError)
+        return NextResponse.json({ error: 'Failed to reject payment' }, { status: 500 })
+      }
 
       return NextResponse.json({ success: true })
     }

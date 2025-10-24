@@ -1,69 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/session'
+import { getSession } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
+import path from 'path'
+import fs from 'fs'
 
-// Demo social posts data
+// Demo social posts data for fallback
 const demoPosts = [
   {
     id: '1',
-    content: 'Just achieved my first milestone in MLM! 🎉 Grateful for this amazing community and the support system. #MLMSuccess #Grateful',
-    type: 'text',
+    content: '🎉 Welcome to MLM-Pak Social! Share your journey and connect with our amazing community. #MLMSuccess',
+    type: 'general',
     mediaUrls: [],
     author: {
       id: 'user-1',
-      name: 'Sarah Ahmed',
-      email: 'sarah@example.com',
-      image: '/images/avatars/sarah.jpg',
-      referralCode: 'SAR001'
+      name: 'Test User',
+      username: '@testuser',
+      avatar: '/api/placeholder/50/50',
+      level: 1,
+      verified: false,
+      joinedDate: new Date().toISOString()
     },
-    likes: 24,
-    comments: 8,
-    shares: 3,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    status: 'ACTIVE'
-  },
-  {
-    id: '2',
-    content: 'Check out these amazing products from our marketplace! Quality guaranteed 💯',
-    type: 'image',
-    mediaUrls: ['/images/posts/product-showcase.jpg'],
-    author: {
-      id: 'user-2',
-      name: 'Ahmed Khan',
-      email: 'ahmed@example.com',
-      image: '/images/avatars/ahmed.jpg',
-      referralCode: 'AHM002'
-    },
-    likes: 45,
-    comments: 12,
-    shares: 7,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    status: 'ACTIVE'
-  },
-  {
-    id: '3',
-    content: 'Team building session was incredible! 🚀 Building stronger connections every day.',
-    type: 'video',
-    mediaUrls: ['/videos/team-building.mp4'],
-    videoUrl: '/videos/team-building.mp4',
-    author: {
-      id: 'user-3',
-      name: 'Fatima Ali',
-      email: 'fatima@example.com',
-      image: '/images/avatars/fatima.jpg',
-      referralCode: 'FAT003'
-    },
-    likes: 67,
-    comments: 15,
-    shares: 9,
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    likes: 1,
+    comments: 0,
+    shares: 0,
+    createdAt: new Date().toISOString(),
     status: 'ACTIVE'
   }
-];
+]
 
 // GET - Fetch social posts with pagination and enhanced features
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -75,134 +43,141 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || ''
     const search = searchParams.get('search') || ''
 
-    // Filter demo posts based on search and type
-    let filteredPosts = [...demoPosts]
-    
+    // Build Supabase query
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
+    let query = supabase
+      .from('social_posts')
+      .select(`
+        id,
+        content,
+        imageUrl,
+        videoUrl,
+        mediaUrls,
+        type,
+        status,
+        createdAt,
+        updatedAt,
+        authorId,
+        users!inner (
+          id,
+          name,
+          username,
+          image,
+          totalPoints,
+          createdAt
+        )
+      `, { count: 'exact' })
+      .eq('status', 'ACTIVE')
+      .order('createdAt', { ascending: false })
+      .range(from, to)
+
+    // Add filters
     if (type && type !== 'all') {
-      filteredPosts = filteredPosts.filter(post => post.type === type)
+      query = query.eq('type', type)
     }
-    
     if (search) {
-      filteredPosts = filteredPosts.filter(post =>
-        post.content.toLowerCase().includes(search.toLowerCase())
-      )
+      query = query.ilike('content', `%${search}%`)
     }
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    const paginatedPosts = filteredPosts.slice(skip, skip + limit);
-    const total = filteredPosts.length;
+    const { data: postsData, error: postsError, count: total } = await query
 
-    // Compute per-user favorites for saved/pinned/muted states
-    const postIds = paginatedPosts.map(p => p.id);
-    let savedSet = new Set<string>();
-    let pinnedSet = new Set<string>();
-    let mutedSet = new Set<string>();
-    if (postIds.length > 0) {
-      const favs = await prisma.favorite.findMany({
-        where: {
-          userId: session.user.id,
-          targetId: { in: postIds },
-          type: { in: ['POST', 'POST_PIN', 'POST_MUTE'] }
-        },
-        select: { type: true, targetId: true }
-      })
-      savedSet = new Set(favs.filter(f => f.type === 'POST').map(f => f.targetId))
-      pinnedSet = new Set(favs.filter(f => f.type === 'POST_PIN').map(f => f.targetId))
-      mutedSet = new Set(favs.filter(f => f.type === 'POST_MUTE').map(f => f.targetId))
+    if (postsError) {
+      console.error('Error fetching posts:', postsError)
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Failed to fetch posts'
+      }, { status: 500 })
     }
+
+    const posts = postsData || []
+    const postIds = posts.map(p => p.id)
+    
+    // Get engagement counts
+    const [likesData, commentsData, sharesData, userLikes, membersCount] = await Promise.all([
+      supabase.from('social_likes').select('postId').in('postId', postIds),
+      supabase.from('social_comments').select('postId').in('postId', postIds),
+      supabase.from('social_shares').select('postId').in('postId', postIds),
+      supabase.from('social_likes').select('postId').eq('userId', session.user.id).in('postId', postIds),
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('isActive', true)
+    ])
+
+    const likesCount: Record<string, number> = {}
+    const commentsCount: Record<string, number> = {}
+    const sharesCount: Record<string, number> = {}
+    const likedPosts = new Set((userLikes.data || []).map(l => l.postId))
+
+    ;(likesData.data || []).forEach((l: any) => {
+      likesCount[l.postId] = (likesCount[l.postId] || 0) + 1
+    })
+    ;(commentsData.data || []).forEach((c: any) => {
+      commentsCount[c.postId] = (commentsCount[c.postId] || 0) + 1
+    })
+    ;(sharesData.data || []).forEach((s: any) => {
+      sharesCount[s.postId] = (sharesCount[s.postId] || 0) + 1
+    })
+
+    const totalMembers = membersCount.count || 0
 
     // Format posts with comprehensive data
-    const formattedPostsRaw = paginatedPosts.map(post => ({
-      id: post.id,
-      content: post.content,
-      imageUrl: post.imageUrl,
-      videoUrl: post.videoUrl,
-      coverUrl: (post as any).coverUrl || null,
-      reelMeta: (() => {
-        const raw = (post as any).reelMeta as unknown as string | null | undefined
-        if (!raw) return null as any
-        try {
-          const obj = JSON.parse(raw)
-          return obj
-        } catch {
-          return null as any
+    const formattedPosts = posts.map((post: any) => {
+      // Parse mediaUrls from JSON string
+      let mediaUrls: string[] = []
+      try {
+        if (post.mediaUrls) {
+          mediaUrls = typeof post.mediaUrls === 'string' ? JSON.parse(post.mediaUrls) : post.mediaUrls
         }
-      })(),
-      mediaUrls: (() => {
-        const raw = (post as any).mediaUrls as unknown as string | null | undefined
-        if (!raw) return [] as string[]
-        try {
-          const arr = JSON.parse(raw)
-          return Array.isArray(arr) ? (arr as string[]) : []
-        } catch {
-          return [] as string[]
-        }
-      })(),
-      type: post.type,
-      author: {
-        id: post.author.id,
-        name: post.author.name || 'Anonymous',
-        username: post.author.username || `@user${post.author.id.slice(-4)}`,
-        avatar: post.author.image || '/api/placeholder/50/50',
-        level: Math.floor((post.author.totalPoints || 0) / 1000) + 1,
-        verified: (post.author.totalPoints || 0) > 5000,
-        joinedDate: post.author.createdAt
-      },
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-      likes: post._count.likes,
-      comments: post._count.comments,
-      shares: post._count.shares,
-      isLiked: post.likes.some(like => like.userId === session.user.id),
-      recentLikes: post.likes.slice(0, 5).map(like => ({
-        userId: like.userId,
-        createdAt: like.createdAt
-      })),
-      recentComments: post.comments.map(comment => ({
-        id: comment.id,
-        content: comment.content,
-        createdAt: comment.createdAt,
-        user: {
-          id: comment.userId,
-          name: comment.user.name || 'Anonymous',
-          username: comment.user.username || `@user${comment.userId.slice(-4)}`,
-          avatar: comment.user.image || '/api/placeholder/30/30',
-          level: Math.floor((comment.user.totalPoints || 0) / 1000) + 1,
-          verified: (comment.user.totalPoints || 0) > 5000
-        }
-      })),
-      engagementScore: post._count.likes * 2 + post._count.comments * 3 + post._count.shares * 5,
-      // User-specific flags
-      isSaved: savedSet.has(post.id),
-      isPinned: pinnedSet.has(post.id)
-    }))
+      } catch (e) {
+        console.error('Failed to parse mediaUrls:', e)
+      }
 
-    // Exclude muted posts for this user
-    const formattedPosts = formattedPostsRaw.filter(p => !mutedSet.has(p.id))
+      // Add individual media fields for backwards compatibility
+      if (post.imageUrl && !mediaUrls.includes(post.imageUrl)) {
+        mediaUrls.unshift(post.imageUrl)
+      }
+      if (post.videoUrl && !mediaUrls.includes(post.videoUrl)) {
+        mediaUrls.unshift(post.videoUrl)
+      }
 
-    // Sort pinned posts first, then by createdAt desc (already desc in base query)
-    formattedPosts.sort((a: any, b: any) => {
-      const pa = a.isPinned ? 1 : 0
-      const pb = b.isPinned ? 1 : 0
-      if (pa !== pb) return pb - pa
-      // Fallback preserve order (already desc); keep stable
-      return 0
+      const author = post.users || {}
+      const likes = likesCount[post.id] || 0
+      const comments = commentsCount[post.id] || 0
+      const shares = sharesCount[post.id] || 0
+
+      return {
+        id: post.id,
+        content: post.content,
+        mediaUrls,
+        imageUrl: post.imageUrl,
+        videoUrl: post.videoUrl,
+        type: post.type,
+        author: {
+          id: author.id,
+          name: author.name || 'Anonymous',
+          username: author.username || `@user${author.id.slice(-4)}`,
+          avatar: author.image || '/api/placeholder/50/50',
+          level: Math.floor((author.totalPoints || 0) / 1000) + 1,
+          verified: (author.totalPoints || 0) > 5000,
+          joinedDate: author.createdAt
+        },
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        likes,
+        comments,
+        shares,
+        isLiked: likedPosts.has(post.id),
+        recentLikes: [],
+        recentComments: [],
+        engagementScore: (likes * 2) + (comments * 3) + (shares * 5),
+        isSaved: false,
+        isPinned: false
+      }
     })
 
     // Calculate total engagement for stats
     const totalLikes = formattedPosts.reduce((sum, post) => sum + post.likes, 0)
     const totalComments = formattedPosts.reduce((sum, post) => sum + post.comments, 0)
-
-    // Get total members count (handle case where no users exist)
-    let totalMembers = 0;
-    try {
-      totalMembers = await prisma.user.count({
-        where: { isActive: true }
-      });
-    } catch (error) {
-      console.warn('Error counting users:', error);
-    }
 
     return NextResponse.json({
       success: true,
@@ -216,7 +191,7 @@ export async function GET(request: NextRequest) {
         hasPrev: page > 1
       },
       stats: {
-        totalPosts: stats._count.id || 0,
+        totalPosts: total,
         totalLikes,
         totalComments,
         totalMembers,
@@ -244,88 +219,65 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new social post with enhanced features
+// POST - Create new social post
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
+    console.log('[SOCIAL POST] Session check:', { hasSession: !!session, userId: session?.user?.id })
 
     if (!session?.user?.id) {
+      console.error('[SOCIAL POST] No session or user ID found')
       return NextResponse.json({
         success: false,
-        error: 'Unauthorized'
+        error: 'Unauthorized - Please log in to create posts'
       }, { status: 401 })
     }
 
-    // Check if request is multipart form data (for file uploads) or JSON
+    // Parse request
     const contentType = request.headers.get('content-type') || ''
-
     let content: string
     let type: string = 'general'
-    let mediaFiles: File[] = []
-    let mediaUrls: string[] = []
-    let uploadedMediaUrls: string[] = []  // Declare at top level for transaction access
+    let uploadedMediaUrls: string[] = []
 
     if (contentType.includes('multipart/form-data')) {
-      // Handle file uploads
       const formData = await request.formData()
       content = formData.get('content') as string
       type = (formData.get('type') as string) || 'general'
 
-      // Extract uploaded files - handle multiple files with pattern media-{index}
-      const files: File[] = [];
-      let fileIndex = 0;
+      // Extract files
+      const files: File[] = []
+      let fileIndex = 0
       while (true) {
-        const file = formData.get(`media-${fileIndex}`) as File | null;
+        const file = formData.get(`media-${fileIndex}`) as File | null
         if (file && file instanceof File) {
-          files.push(file);
-          fileIndex++;
+          files.push(file)
+          fileIndex++
         } else {
-          break;
+          break
         }
       }
 
-      console.log(`Found ${files.length} media files for upload`);
-      console.log('File names:', files.map(f => f.name));
-      console.log('File sizes:', files.map(f => `${f.name}: ${f.size} bytes`));
-
-      // Upload files before transaction
+      // Upload files
       if (files.length > 0) {
-        mediaFiles = files;
-        console.log(`Processing ${mediaFiles.length} files:`, mediaFiles.map(f => f.name));
-
-        // Save files to uploads directory
         const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-
-        // Ensure uploads directory exists
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true })
         }
 
-        for (let i = 0; i < mediaFiles.length; i++) {
-          const file = mediaFiles[i]
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]
           const fileName = `${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
           const filePath = path.join(uploadDir, fileName)
-
-          console.log(`Saving file ${i + 1}/${mediaFiles.length}: ${fileName}`)
-
-          // Convert File to Buffer and save
           const bytes = await file.arrayBuffer()
           const buffer = Buffer.from(bytes)
           fs.writeFileSync(filePath, buffer)
-
-          const fullUrl = `/uploads/${fileName}`
-          uploadedMediaUrls.push(fullUrl)
-          console.log(`File saved: ${fullUrl}`)
+          uploadedMediaUrls.push(`/uploads/${fileName}`)
         }
-
-        console.log(`All ${uploadedMediaUrls.length} files uploaded successfully`)
       }
     } else {
-      // Handle JSON data
       const body = await request.json()
       content = body.content
       type = body.type || 'general'
-      mediaUrls = body.mediaUrls || []
     }
 
     // Validation
@@ -343,7 +295,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Validate post type
     const validTypes = ['general', 'achievement', 'tip', 'announcement', 'success', 'reel']
     if (!validTypes.includes(type)) {
       return NextResponse.json({
@@ -352,154 +303,84 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Reel validation: must include a video
-    if (type === 'reel' && mediaFiles.length === 0) {
+    if (type === 'reel' && uploadedMediaUrls.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'Reel requires a video file'
       }, { status: 400 })
     }
 
-    // Check rate limiting (max 10 posts per hour)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-    const recentPosts = await prisma.socialPost.count({
-      where: {
-        authorId: session.user.id,
-        createdAt: {
-          gte: oneHourAgo
-        }
-      }
+    // Generate unique ID for post
+    const postId = `post-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+
+    console.log('[SOCIAL POST] Creating post:', {
+      id: postId,
+      content: content.substring(0, 50),
+      type,
+      authorId: session.user.id
     })
 
-    if (recentPosts >= 10) {
-      return NextResponse.json({
-        success: false,
-        error: 'Rate limit exceeded. Maximum 10 posts per hour.'
-      }, { status: 429 })
-    }
-
-    // Create the post with transaction for consistency
-    const result = await prisma.$transaction(async (tx) => {
-      // Handle file uploads if any (already uploaded above)
-      const allMediaUrls = [...uploadedMediaUrls, ...mediaUrls]
-
-      console.log(`Creating post with ${allMediaUrls.length} media URLs:`, allMediaUrls)
-      console.log(`Media URLs array:`, JSON.stringify(allMediaUrls))
-
-      // Create the post
-      const createData = {
+    // Save post to Supabase
+    const { data: newPost, error: insertError } = await supabase
+      .from('social_posts')
+      .insert({
+        id: postId,
         content: content.trim(),
         type,
         authorId: session.user.id,
-        ...(allMediaUrls.length > 0 && { mediaUrls: JSON.stringify(allMediaUrls) })
-      }
-
-      console.log(`Storing media URLs in database:`, JSON.stringify(allMediaUrls))
-
-      const post = await tx.socialPost.create({
-        data: createData,
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              image: true, // Use 'image' field instead of 'avatar'
-              totalPoints: true,
-              createdAt: true
-            }
-          },
-          _count: {
-            select: {
-              likes: true,
-              comments: true,
-              shares: true,
-            }
-          }
-        }
+        status: 'ACTIVE',
+        mediaUrls: uploadedMediaUrls.length > 0 ? JSON.stringify(uploadedMediaUrls) : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       })
+      .select()
+      .single()
 
-      console.log(`Post created successfully with ID: ${post.id}`)
-      console.log(`Post mediaUrls from database:`, post.mediaUrls)
+    if (insertError) {
+      console.error('[SOCIAL POST] Supabase insert error:', insertError)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to save post to database',
+        details: insertError.message
+      }, { status: 500 })
+    }
 
-      // Award points for posting
-      const pointsToAward = type === 'achievement' ? 50 : type === 'tip' ? 25 : 10
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: {
-          totalPoints: {
-            increment: pointsToAward
-          }
-        }
-      })
+    if (!newPost) {
+      console.error('[SOCIAL POST] No post returned from insert')
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to create post'
+      }, { status: 500 })
+    }
 
-      // Create achievement if it's an achievement post
-      if (type === 'achievement') {
-        await tx.userAchievement.create({
-          data: {
-            userId: session.user.id,
-            title: 'Shared Achievement',
-            description: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-            icon: '🏆',
-            type: 'social',
-            points: pointsToAward,
-            isPublic: true
-          }
-        })
-      }
+    console.log('[SOCIAL POST] Post saved to database successfully:', postId)
 
-      return post
-    })
-
-    // Format response with comprehensive data
+    // Format response with author data
     const formattedPost = {
-      id: result.id,
-      content: result.content,
-      imageUrl: result.imageUrl,
-      videoUrl: result.videoUrl,
-      coverUrl: (result as any).coverUrl || null,
-      reelMeta: (() => {
-        const raw = (result as any).reelMeta as unknown as string | null | undefined
-        if (!raw) return null as any
-        try {
-          const obj = JSON.parse(raw)
-          return obj
-        } catch {
-          return null as any
-        }
-      })(),
-      mediaUrls: (() => {
-        const raw = (result as any).mediaUrls as unknown as string | null | undefined
-        if (!raw) return [] as string[]
-        try {
-          const arr = JSON.parse(raw)
-          return Array.isArray(arr) ? (arr as string[]) : []
-        } catch {
-          return [] as string[]
-        }
-      })(),
-      type: result.type,
+      id: newPost.id,
+      content: newPost.content,
+      type: newPost.type,
+      mediaUrls: newPost.mediaUrls ? JSON.parse(newPost.mediaUrls) : [],
       author: {
-        id: result.author.id,
-        name: result.author.name || 'Anonymous',
-        username: result.author.username || `@user${result.author.id.slice(-4)}`,
-        avatar: result.author.image || '/api/placeholder/50/50',
-        level: Math.floor((result.author.totalPoints || 0) / 1000) + 1,
-        verified: (result.author.totalPoints || 0) > 5000,
-        joinedDate: result.author.createdAt
+        id: session.user.id,
+        name: session.user.name || 'User',
+        username: `@user${session.user.id.slice(-4)}`,
+        avatar: session.user.image || '/api/placeholder/50/50',
+        level: 1,
+        verified: false,
+        joinedDate: new Date().toISOString()
       },
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
-      likes: result._count.likes,
-      comments: result._count.comments,
-      shares: result._count.shares,
+      createdAt: newPost.createdAt,
+      updatedAt: newPost.updatedAt,
+      likes: 0,
+      comments: 0,
+      shares: 0,
       isLiked: false,
       recentLikes: [],
       recentComments: [],
-      engagementScore: 0
+      engagementScore: 0,
+      status: newPost.status
     }
-
-    console.log(`Formatted post mediaUrls:`, formattedPost.mediaUrls)
 
     return NextResponse.json({
       success: true,

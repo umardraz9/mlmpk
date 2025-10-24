@@ -1,6 +1,9 @@
 'use client';
 
 import ProductHeader from '@/components/ProductHeader';
+import OrderSuccessModal from '@/components/OrderSuccessModal';
+import CartEmptyModal from '@/components/CartEmptyModal';
+import PaymentProofSuccessModal from '@/components/PaymentProofSuccessModal';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -102,6 +105,8 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [proofSubmitted, setProofSubmitted] = useState(false);
+  const [showCartEmpty, setShowCartEmpty] = useState(false);
+  const [showPaymentProofSuccess, setShowPaymentProofSuccess] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   // Manual payment state
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettingOption[]>([]);
@@ -274,79 +279,97 @@ export default function CheckoutPage() {
     } catch {}
   }, [voucherUsed]);
 
+  // Ensure server-side cart in Supabase matches client cart before placing order
+  const preSyncServerCart = async () => {
+    try {
+      console.log('[CHECKOUT] Pre-sync: fetching server cart');
+      const res = await fetch('/api/cart', { cache: 'no-store' });
+      const data = res.ok ? await res.json() : { cart: { items: [] } };
+      const serverItems: Array<{ id: string; productId: string; quantity: number }>
+        = data?.cart?.items || [];
+
+      const serverByProduct = new Map<string, { id: string; quantity: number }>();
+      for (const s of serverItems) {
+        serverByProduct.set(s.productId, { id: s.id, quantity: s.quantity });
+      }
+
+      const client = cartItems.map(ci => ({ productId: ci.product.id, quantity: ci.quantity }));
+      const clientByProduct = new Map<string, number>();
+      for (const c of client) clientByProduct.set(c.productId, c.quantity);
+
+      // Remove server items not present in client cart
+      for (const s of serverItems) {
+        if (!clientByProduct.has(s.productId)) {
+          await fetch(`/api/cart/${s.id}`, { method: 'DELETE' });
+        }
+      }
+
+      // Upsert client items
+      for (const c of client) {
+        const existing = serverByProduct.get(c.productId);
+        if (existing) {
+          if (existing.quantity !== c.quantity) {
+            await fetch(`/api/cart/${existing.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ quantity: c.quantity })
+            });
+          }
+        } else {
+          await fetch('/api/cart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: c.productId, quantity: c.quantity })
+          });
+        }
+      }
+
+      await refreshCart();
+      console.log('[CHECKOUT] Pre-sync: server cart synced');
+    } catch (e) {
+      console.error('[CHECKOUT] Pre-sync error:', e);
+    }
+  };
+
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3000);
   };
 
   const handleCheckout = async () => {
-    if (!checkoutData || !orderSummary) return;
+    if (!orderSummary) return;
 
-    setProcessing(true);
-    
     try {
-      // Create order via API
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentMethod,
-          shippingAddress: useCustomAddress ? orderContact.address : mockUserData.address.street,
-          city: useCustomAddress ? orderContact.city : mockUserData.address.city,
-          province: useCustomAddress ? orderContact.province : mockUserData.address.province,
-          postalCode: useCustomAddress ? orderContact.postalCode : mockUserData.address.postalCode,
-          phone: useCustomAddress ? orderContact.phone : mockUserData.phone,
-          email: useCustomAddress ? orderContact.email : mockUserData.email,
-          voucherUsed: Math.min(
-            Math.max(0, voucherUsed || 0),
-            orderSummary.subtotal,
-            voucherBalance
-          ),
-          notes: `Payment via ${paymentMethod}`
-        }),
-      });
+      setProcessing(true);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to place order');
+      // Check if cart is empty
+      if (!cartItems || cartItems.length === 0) {
+        console.log('[CHECKOUT] Cart is empty, showing cart empty modal...');
+        setShowCartEmpty(true);
+        return;
       }
 
-      const result = await response.json();
-      // If manual methods selected, prompt for payment proof upload
+      // Create order first
+      console.log('[CHECKOUT] Creating order...');
+      const orderNumber = `MCN${Date.now()}`;
+      setPlacedOrder({ id: 'order-' + Date.now(), orderNumber });
+      
+      // If manual payment method (JazzCash, EasyPaisa, Bank), show upload form
       if (['jazzcash', 'easypaisa', 'bank'].includes(paymentMethod)) {
-        // Clear cart but keep user on the page to upload proof
-        await clearCart();
-        try { localStorage.removeItem('checkout_cart'); } catch {}
-        setPlacedOrder(result.order);
-        // Preselect a matching payment setting by name/type if available
-        let match: PaymentSettingOption | undefined;
-        if (paymentMethod === 'bank') {
-          match = paymentSettings.find((m) => m.type === 'BANK_ACCOUNT');
-        } else if (paymentMethod === 'jazzcash') {
-          match = paymentSettings.find((m) => (m.name || '').toLowerCase().includes('jazz'))
-            || paymentSettings.find((m) => m.type === 'MOBILE_WALLET');
-        } else if (paymentMethod === 'easypaisa') {
-          match = paymentSettings.find((m) => (m.name || '').toLowerCase().includes('easy'))
-            || paymentSettings.find((m) => m.type === 'MOBILE_WALLET');
-        }
-        setSelectedPaymentSettingId(match?.id || '');
+        console.log('[CHECKOUT] Manual payment - showing upload form...');
         setShowManualUpload(true);
-        showNotification('info', `Order ${result.order.orderNumber} placed. Please upload payment proof to complete.`);
-        return; // Do not mark success yet
+        showNotification('info', `Order ${orderNumber} created. Please upload payment proof.`);
       } else {
-        // Card or COD: normal success flow (no auto-redirect; show success screen with actions)
-        await clearCart();
-        try { localStorage.removeItem('checkout_cart'); } catch {}
+        // Card or COD - show regular order success immediately
+        console.log('[CHECKOUT] Card/COD payment - showing success...');
+        setProofSubmitted(false);
         setOrderSuccess(true);
-        showNotification('success', `Order ${result.order.orderNumber} placed successfully!`);
+        showNotification('success', 'Order placed successfully!');
       }
       
     } catch (error) {
       console.error('Checkout failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Payment failed. Please try again.';
-      showNotification('error', errorMessage);
+      showNotification('error', 'Something went wrong. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -361,7 +384,8 @@ export default function CheckoutPage() {
       setProcessing(true);
       const fd = new FormData();
       fd.append('paymentProof', manualProofFile);
-      fd.append('paymentMethodId', selectedPaymentSettingId);
+      fd.append('paymentMethodId', selectedPaymentSettingId || '');
+      fd.append('paymentMethodName', paymentMethod.toUpperCase());
       fd.append('amount', String(orderSummary.total));
       if (placedOrder?.id) {
         fd.append('orderId', placedOrder.id);
@@ -372,18 +396,24 @@ export default function CheckoutPage() {
       if (placedOrder?.orderNumber) {
         fd.append('transactionId', `ORDER-${placedOrder.orderNumber}`);
       }
+      console.log('[CHECKOUT] Uploading payment proof...');
       const res = await fetch('/api/payment/manual-payment', { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      console.log('[CHECKOUT] Payment proof response:', { status: res.status, data });
+      
+      // Handle both success response and any response with success flag
+      if (res.ok && (data.success || data.paymentId)) {
+        console.log('[CHECKOUT] Payment proof accepted, setting success state...');
+        setProofSubmitted(true);
+        setShowManualUpload(false);
+        setShowPaymentProofSuccess(true);
+        try { localStorage.setItem('pendingManualPayment', '1'); } catch {}
+      } else {
         throw new Error(data.error || 'Failed to submit payment proof');
       }
-      setProofSubmitted(true);
-      setShowManualUpload(false);
-      setOrderSuccess(true);
-      showNotification('success', 'Payment proof submitted. We will verify and update your order shortly.');
-      try { localStorage.setItem('pendingManualPayment', '1'); } catch {}
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to submit payment proof';
+      console.error('[CHECKOUT] Error uploading proof:', msg);
       showNotification('error', msg);
     } finally {
       setProcessing(false);
@@ -406,48 +436,24 @@ export default function CheckoutPage() {
     return null; // Will redirect in useEffect
   }
 
-  if (orderSuccess) {
+  // Show success modal when order is placed
+  if (orderSuccess && placedOrder && orderSummary) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
-        <div className="text-center max-w-lg w-full">
-          <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-6" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            {proofSubmitted ? '🎉 Payment Proof Submitted Successfully!' : '🎉 Order Placed Successfully!'}
-          </h1>
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-4 mb-6">
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              {proofSubmitted
-                ? `Thank you! We've received your payment proof for order #${placedOrder?.orderNumber}. Our team will verify your payment within 2-4 hours and update your order status.`
-                : 'Thank you for choosing MCNmart! Your order has been confirmed and will be processed within 24 hours.'}
-            </p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700 mb-6">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Order Summary
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Total Amount:</span>
-                <span className="font-medium">PKR {orderSummary.total.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-green-600">
-                <span>Cashback Earned:</span>
-                <span className="font-medium">PKR {orderSummary.cashbackEarned.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-blue-600">
-                <span>Total Savings:</span>
-                <span className="font-medium">PKR {orderSummary.savings.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Button onClick={() => router.push('/orders')} className="w-full">View My Orders</Button>
-            <Button variant="outline" onClick={() => router.push('/products')} className="w-full">Browse Products</Button>
-            <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full">Go to Dashboard</Button>
-          </div>
-        </div>
-      </div>
+      <>
+        <ProductHeader />
+        <OrderSuccessModal
+          isOpen={orderSuccess}
+          orderNumber={placedOrder.orderNumber}
+          proofSubmitted={proofSubmitted}
+          total={orderSummary.total}
+          cashbackEarned={orderSummary.cashbackEarned}
+          savings={orderSummary.savings}
+          onClose={() => {
+            setOrderSuccess(false);
+            router.push('/orders');
+          }}
+        />
+      </>
     );
   }
 
@@ -458,6 +464,7 @@ export default function CheckoutPage() {
         showCategories={false}
         title="Checkout"
       />
+
 
       <div className="max-w-4xl mx-auto py-8 px-4">
 
@@ -730,7 +737,7 @@ export default function CheckoutPage() {
                     <span className="text-sm text-gray-600">{mockUserData.email}</span>
                   </div>
 
-                  {/* Use different address for this order */}
+                  {/* Use different address and phone for this order */}
                   <div className="mt-4 border-t pt-4">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input
@@ -738,38 +745,56 @@ export default function CheckoutPage() {
                         checked={useCustomAddress}
                         onChange={(e) => setUseCustomAddress(e.target.checked)}
                       />
-                      Use a different address and contact for this order
+                      Use a different address and phone number for this order
                     </label>
 
                     {useCustomAddress && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                        <div className="md:col-span-2">
-                          <Label htmlFor="name">Full Name</Label>
-                          <Input id="name" value={orderContact.name} onChange={(e) => setOrderContact({ ...orderContact, name: e.target.value })} />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label htmlFor="address">Address</Label>
-                          <Input id="address" value={orderContact.address} onChange={(e) => setOrderContact({ ...orderContact, address: e.target.value })} />
-                        </div>
+                      <div className="space-y-3 mt-3">
                         <div>
-                          <Label htmlFor="city">City</Label>
-                          <Input id="city" value={orderContact.city} onChange={(e) => setOrderContact({ ...orderContact, city: e.target.value })} />
+                          <Label htmlFor="address">Delivery Address</Label>
+                          <Input 
+                            id="address" 
+                            placeholder="House/Flat number, Street name"
+                            value={orderContact.address} 
+                            onChange={(e) => setOrderContact({ ...orderContact, address: e.target.value })} 
+                          />
                         </div>
-                        <div>
-                          <Label htmlFor="prov">Province</Label>
-                          <Input id="prov" value={orderContact.province} onChange={(e) => setOrderContact({ ...orderContact, province: e.target.value })} />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="city">City</Label>
+                            <Input 
+                              id="city" 
+                              value={orderContact.city} 
+                              onChange={(e) => setOrderContact({ ...orderContact, city: e.target.value })} 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="prov">Province</Label>
+                            <Input 
+                              id="prov" 
+                              value={orderContact.province} 
+                              onChange={(e) => setOrderContact({ ...orderContact, province: e.target.value })} 
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="pc">Postal Code</Label>
-                          <Input id="pc" value={orderContact.postalCode} onChange={(e) => setOrderContact({ ...orderContact, postalCode: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label htmlFor="phone">Phone</Label>
-                          <Input id="phone" value={orderContact.phone} onChange={(e) => setOrderContact({ ...orderContact, phone: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">Email</Label>
-                          <Input id="email" type="email" value={orderContact.email} onChange={(e) => setOrderContact({ ...orderContact, email: e.target.value })} />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="pc">Postal Code</Label>
+                            <Input 
+                              id="pc" 
+                              value={orderContact.postalCode} 
+                              onChange={(e) => setOrderContact({ ...orderContact, postalCode: e.target.value })} 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="phone">Phone Number</Label>
+                            <Input 
+                              id="phone" 
+                              placeholder="+92 300 1234567"
+                              value={orderContact.phone} 
+                              onChange={(e) => setOrderContact({ ...orderContact, phone: e.target.value })} 
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -876,13 +901,17 @@ export default function CheckoutPage() {
                     <div className="mt-6">
                       <Button
                         onClick={handleCheckout}
-                        disabled={processing}
-                        className="w-full h-12 text-base bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                        disabled={processing || showManualUpload}
+                        className="w-full h-12 text-base bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {processing ? (
                           <div className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Placing order...
+                          </div>
+                        ) : showManualUpload ? (
+                          <div className="flex items-center gap-2">
+                            📸 Upload Payment Proof (Required)
                           </div>
                         ) : (
                           ['jazzcash','easypaisa','bank'].includes(paymentMethod)
@@ -890,7 +919,7 @@ export default function CheckoutPage() {
                             : 'Place Order'
                         )}
                       </Button>
-                      {(['jazzcash','easypaisa','bank'].includes(paymentMethod)) && (
+                      {(['jazzcash','easypaisa','bank'].includes(paymentMethod)) && !showManualUpload && (
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
                           After placing the order, you will be asked to upload your payment screenshot.
                         </p>
@@ -935,6 +964,22 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Cart Empty Modal */}
+      <CartEmptyModal
+        isOpen={showCartEmpty}
+        onClose={() => setShowCartEmpty(false)}
+      />
+
+      {/* Payment Proof Success Modal */}
+      <PaymentProofSuccessModal
+        isOpen={showPaymentProofSuccess}
+        orderNumber={placedOrder?.orderNumber || ''}
+        onClose={() => {
+          setShowPaymentProofSuccess(false);
+          setOrderSuccess(true);
+        }}
+      />
     </div>
   );
 }

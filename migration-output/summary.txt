@@ -1,0 +1,59 @@
+Migration Summary
+=================
+
+Date: 2025-10-23T10:23:22.587Z
+Source: SQLite (dev.db)
+Target: PostgreSQL (Supabase)
+Tables: 50
+
+Tables exported:
+  - _prisma_migrations
+  - blog_categories
+  - blog_tags
+  - blog_posts
+  - blog_comments
+  - tasks
+  - task_completions
+  - notifications
+  - commission_settings
+  - notification_preferences
+  - withdrawal_requests
+  - notification_templates
+  - testimonials
+  - _BlogPostToBlogTag
+  - social_posts
+  - social_likes
+  - social_comments
+  - social_shares
+  - social_follows
+  - user_achievements
+  - team_members
+  - social_reports
+  - favorites
+  - profile_likes
+  - password_resets
+  - direct_messages
+  - user_blocks
+  - message_reactions
+  - carts
+  - cart_items
+  - order_items
+  - product_categories
+  - return_requests
+  - membership_plans
+  - referral_commissions
+  - task_earning_history
+  - referral_earning_history
+  - payment_settings
+  - payment_confirmations
+  - plan_extension_settings
+  - error_logs
+  - payment_methods
+  - manual_payments
+  - reviews
+  - delivery_reviews
+  - _UserMembershipPlans
+  - orders
+  - products
+  - transactions
+  - users

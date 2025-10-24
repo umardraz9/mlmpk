@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
 
 // GET - Get all withdrawal requests
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
     
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -56,27 +55,27 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit
 
-    const [withdrawalsRaw, total] = await Promise.all([
-      prisma.withdrawalRequest.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { requestedAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatar: true,
-              phone: true,
-              username: true,
-            }
-          }
-        }
-      }),
-      prisma.withdrawalRequest.count({ where })
-    ])
+    // Build Supabase query
+    let query = supabase
+      .from('withdrawal_requests')
+      .select('*, user:users(*)', { count: 'exact' })
+      .order('requestedAt', { ascending: false })
+      .range(skip, skip + limit - 1)
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status)
+    }
+
+    if (paymentMethod && paymentMethod !== 'all') {
+      query = query.eq('paymentMethod', paymentMethod)
+    }
+
+    const { data: withdrawalsRaw, count: total, error } = await query
+
+    if (error) {
+      console.error('Error fetching withdrawals:', error)
+      return NextResponse.json({ error: 'Failed to fetch withdrawals' }, { status: 500 })
+    }
 
     const withdrawals = withdrawalsRaw.map(w => ({
       ...w,
@@ -107,7 +106,7 @@ export async function GET(request: NextRequest) {
 // POST - Create withdrawal request (admin override)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
     
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -125,12 +124,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check user balance
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { balance: true }
-    })
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', userId)
+      .single()
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
@@ -139,38 +139,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Create withdrawal request
-    const withdrawal = await prisma.withdrawalRequest.create({
-      data: {
+    const { data: withdrawal, error: createError } = await supabase
+      .from('withdrawal_requests')
+      .insert([{
         userId,
         amount,
         paymentMethod,
         paymentDetails: JSON.stringify(paymentDetails),
         status: 'PENDING',
-        requestedAt: new Date(),
-        processedAt: new Date(),
+        requestedAt: new Date().toISOString(),
+        processedAt: new Date().toISOString(),
         processedBy: session.user.id
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-          }
-        }
-      }
-    })
+      }])
+      .select('*')
+      .single()
+
+    if (createError) {
+      console.error('Error creating withdrawal:', createError)
+      return NextResponse.json({ error: 'Failed to create withdrawal' }, { status: 500 })
+    }
 
     // Update user balance
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        balance: {
-          decrement: amount
-        }
-      }
-    })
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ balance: user.balance - amount })
+      .eq('id', userId)
+
+    if (updateError) {
+      console.error('Error updating user balance:', updateError)
+    }
 
     return NextResponse.json(withdrawal, { status: 201 })
   } catch (error) {

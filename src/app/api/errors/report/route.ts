@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { getSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 interface ErrorReport {
   errorId: string;
@@ -32,14 +31,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user session if available
-    // @ts-ignore
-    const session = await unstable_getServerSession(request, authOptions);
+    const session = await getSession().catch(() => null);
 
     // Store error report
     const errorReport: ErrorReport & { userEmail?: string } = {
       ...body,
-      userId: // @ts-ignore
-      session.user.id || body.userId,
+      userId: session?.user?.id || body.userId,
     };
 
     // Add to in-memory store (rotate if needed)
@@ -50,18 +47,16 @@ export async function POST(request: NextRequest) {
 
     // Store in database for persistence (optional)
     try {
-      await prisma.errorLog.create({
-        data: {
-          errorId: body.errorId,
-          message: body.message,
-          stack: body.stack || null,
-          componentStack: body.componentStack || null,
-          url: body.url,
-          userAgent: body.userAgent,
-          userId: body.userId || null,
-          timestamp: new Date(body.timestamp),
-          resolved: false,
-        }
+      await supabase.from('error_logs').insert({
+        errorId: body.errorId,
+        message: body.message,
+        stack: body.stack || null,
+        componentStack: body.componentStack || null,
+        url: body.url,
+        userAgent: body.userAgent,
+        userId: body.userId || null,
+        timestamp: new Date(body.timestamp).toISOString(),
+        resolved: false,
       });
     } catch (dbError) {
       console.error('Failed to store error in database:', dbError);
@@ -115,31 +110,28 @@ export async function GET(request: NextRequest) {
     const resolved = searchParams.get('resolved') === 'true';
 
     // Fetch errors from database
-    const errors = await prisma.errorLog.findMany({
-      where: {
-        resolved: resolved || undefined
-      },
-      orderBy: {
-        timestamp: 'desc'
-      },
-      take: limit,
-      skip: offset,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
-    });
+    let query = supabase
+      .from('error_logs')
+      .select(`
+        *,
+        user:users(id, name, email)
+      `, { count: 'exact' })
+      .order('timestamp', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    const total = await prisma.errorLog.count({
-      where: {
-        resolved: resolved || undefined
-      }
-    });
+    if (resolved !== undefined) {
+      query = query.eq('resolved', resolved)
+    }
+
+    const { data: errors, error: fetchError, count: total } = await query
+
+    if (fetchError) {
+      console.error('Supabase error:', fetchError)
+      return NextResponse.json(
+        { error: 'Failed to fetch errors' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       errors,
@@ -160,11 +152,9 @@ export async function GET(request: NextRequest) {
 // Mark error as resolved
 export async function PATCH(request: NextRequest) {
   try {
-    // @ts-ignore
-    const session = await unstable_getServerSession(request, authOptions);
+    const session = await getSession();
 
-    if (!// @ts-ignore
-    session.user.isAdmin) {
+    if (!session?.user?.isAdmin) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -181,10 +171,20 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updatedError = await prisma.errorLog.update({
-      where: { errorId },
-      data: { resolved: resolved ?? true }
-    });
+    const { data: updatedError, error: updateError } = await supabase
+      .from('error_logs')
+      .update({ resolved: resolved ?? true })
+      .eq('errorId', errorId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Supabase error:', updateError)
+      return NextResponse.json(
+        { error: 'Failed to update error' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,

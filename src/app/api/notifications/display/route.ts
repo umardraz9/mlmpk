@@ -1,71 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db as prisma } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
-export async function GET() {
+interface NotificationRow {
+  id: string;
+  title: string;
+  message?: string | null;
+  content?: string | null;
+  type?: string | null;
+  category?: string | null;
+  isRead?: boolean | null;
+  read?: boolean | null;
+  createdAt: string;
+  data?: unknown;
+  createdBy?: unknown;
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
+    const session = await getSession();
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all notifications for current user
-    const notifications = await prisma.notification.findMany({
-      where: {
-        recipientId: session.user.id,
-        isActive: true
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        title: true,
-        message: true,
-        type: true,
-        category: true,
-        isRead: true,
-        createdAt: true,
-        data: true,
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true
-          }
-        }
-      }
-    });
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
 
-    // Count unread notifications
-    const unreadCount = await prisma.notification.count({
-      where: {
-        recipientId: session.user.id,
-        isRead: false,
-        isActive: true
-      }
-    });
+    // Fetch notifications for current user from Supabase
+    const { data: rows, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('userId', session.user.id)
+      .order('createdAt', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching notifications from Supabase:', error);
+      return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+    }
+
+    // Count unread notifications (read=false or isRead=false)
+    const { count: unreadCount } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('userId', session.user.id)
+      .or('read.eq.false,isRead.eq.false');
+
+    const rowsTyped = (rows || []) as NotificationRow[];
+    const notifications = rowsTyped.map((notif: NotificationRow) => ({
+      id: notif.id,
+      title: notif.title,
+      message: notif.message ?? notif.content ?? '',
+      type: typeof notif.type === 'string' ? notif.type : 'info',
+      category: notif.category ?? null,
+      isRead: typeof notif.isRead === 'boolean' ? notif.isRead : Boolean(notif.read),
+      createdAt: notif.createdAt,
+      data: notif.data ?? null,
+      sender: notif.createdBy || null,
+      timeAgo: getTimeAgo(new Date(notif.createdAt))
+    }));
 
     return NextResponse.json({
       success: true,
-      notifications: notifications.map(notif => ({
-        id: notif.id,
-        title: notif.title,
-        message: notif.message,
-        type: notif.type,
-        category: notif.category,
-        isRead: notif.isRead,
-        createdAt: notif.createdAt,
-        data: notif.data,
-        sender: notif.createdBy,
-        timeAgo: getTimeAgo(notif.createdAt)
-      })),
-      unreadCount,
+      notifications,
+      unreadCount: unreadCount || 0,
       totalCount: notifications.length
     });
-
   } catch (error) {
     console.error('Error fetching notifications for display:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

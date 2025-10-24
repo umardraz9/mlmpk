@@ -85,40 +85,8 @@ export const ShippingAddressCard: React.FC<ShippingAddressCardProps> = memo(({
       <CardContent>
         {isEditing ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={tempContact.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  disabled={isProcessing}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={tempContact.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  disabled={isProcessing}
-                />
-              </div>
-            </div>
-
             <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={tempContact.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="address">Street Address</Label>
+              <Label htmlFor="address">Delivery Address</Label>
               <Input
                 id="address"
                 value={tempContact.address}
@@ -128,7 +96,7 @@ export const ShippingAddressCard: React.FC<ShippingAddressCardProps> = memo(({
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="city">City</Label>
                 <Input
@@ -147,12 +115,25 @@ export const ShippingAddressCard: React.FC<ShippingAddressCardProps> = memo(({
                   disabled={isProcessing}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="postalCode">Postal Code</Label>
                 <Input
                   id="postalCode"
                   value={tempContact.postalCode}
                   onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                  disabled={isProcessing}
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  placeholder="+92 300 1234567"
+                  value={tempContact.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
                   disabled={isProcessing}
                 />
               </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 
 // POST /api/contact - Accept contact form submissions and store as admin notifications
 export async function POST(request: NextRequest) {
@@ -16,8 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a Notification entry so admins can view it in their notifications panel
-    const notification = await prisma.notification.create({
-      data: {
+    const { data: notification, error } = await supabase
+      .from('notifications')
+      .insert({
         title: `Contact: ${subject}`,
         message: message.toString().slice(0, 5000),
         type: 'contact',
@@ -27,8 +28,17 @@ export async function POST(request: NextRequest) {
         role: 'admin',
         isGlobal: true,
         data: JSON.stringify({ name, email, phone: phone || null, subject }),
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Supabase error:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to create notification' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ success: true, id: notification.id })
   } catch (error) {

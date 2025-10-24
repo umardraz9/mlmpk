@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/session'
+import { getSession } from '@/lib/session'
 import { db as prisma } from '@/lib/db'
 
 import { notificationService } from '@/lib/notifications'
@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
     const { id: postId } = await params
     
     if (!session?.user?.id) {

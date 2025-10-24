@@ -42,6 +42,20 @@ export default function ProductHeader({
   const router = useRouter();
   const { data: session } = useSession();
   const { cartCount } = useCart();
+  const [favoritesCount, setFavoritesCount] = React.useState(0);
+
+  // Load favorites count from localStorage
+  React.useEffect(() => {
+    const stored = localStorage.getItem('favorites');
+    if (stored) {
+      try {
+        const favorites = JSON.parse(stored);
+        setFavoritesCount(Array.isArray(favorites) ? favorites.length : Object.keys(favorites).length);
+      } catch {
+        setFavoritesCount(0);
+      }
+    }
+  }, []);
 
   return (
     <>
@@ -88,13 +102,18 @@ export default function ProductHeader({
               <Link href="/favorites" aria-label="Go to wishlist" title="Go to wishlist" className="inline-flex items-center justify-center h-9 rounded-md px-3 text-gray-900 hover:bg-gray-100">
                 <Heart className="h-4 w-4" />
               </Link>
+              {favoritesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                  {Math.min(favoritesCount, 99)}
+                </span>
+              )}
             </div>
             <div className="relative">
               <Link href="/cart" aria-label="Go to cart" title="Go to cart" className="inline-flex items-center justify-center h-9 rounded-md px-3 text-gray-900 hover:bg-gray-100">
                 <ShoppingCart className="h-4 w-4" />
               </Link>
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center font-bold">
                   {Math.min(cartCount, 99)}
                 </span>
               )}

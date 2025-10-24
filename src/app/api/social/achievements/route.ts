@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/session'
+import { getSession } from '@/lib/session'
 import { db as prisma } from '@/lib/db'
 
 // GET - Fetch user achievements
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new achievement
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession()
+    const session = await getSession()
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

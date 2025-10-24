@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/session'
 
 export async function POST(request: NextRequest) {
@@ -16,36 +16,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user's task enabled status
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { tasksEnabled: enabled },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        tasksEnabled: true,
-        membershipStatus: true,
-        membershipPlan: true
-      }
-    })
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({ tasksEnabled: enabled })
+      .eq('id', userId)
+      .select('id, name, email, tasksEnabled, membershipStatus, membershipPlan')
+      .single();
+
+    if (updateError || !updatedUser) {
+      console.error('Error updating user:', updateError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to update user'
+      }, { status: 500 });
+    }
 
     // Log the action
-    await prisma.notification.create({
-      data: {
-        title: `Tasks ${enabled ? 'Enabled' : 'Disabled'}`,
-        message: `Admin ${enabled ? 'enabled' : 'disabled'} tasks for user ${updatedUser.name || updatedUser.email}`,
-        type: 'info',
-        category: 'admin_action',
-        role: 'admin',
-        data: JSON.stringify({
-          userId: updatedUser.id,
-          userName: updatedUser.name || updatedUser.email,
-          action: enabled ? 'enable_tasks' : 'disable_tasks',
-          previousStatus: !enabled,
-          newStatus: enabled
-        })
-      }
-    })
+    await supabase.from('notifications').insert({
+      title: `Tasks ${enabled ? 'Enabled' : 'Disabled'}`,
+      message: `Admin ${enabled ? 'enabled' : 'disabled'} tasks for user ${updatedUser.name || updatedUser.email}`,
+      type: 'info',
+      category: 'admin_action',
+      role: 'admin',
+      data: JSON.stringify({
+        userId: updatedUser.id,
+        userName: updatedUser.name || updatedUser.email,
+        action: enabled ? 'enable_tasks' : 'disable_tasks',
+        previousStatus: !enabled,
+        newStatus: enabled
+      })
+    });
 
     return NextResponse.json({
       success: true,
@@ -75,54 +75,38 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit
 
-    // Build where clause
-    let whereClause: any = {}
+    // Build Supabase query
+    let query = supabase
+      .from('users')
+      .select('id, name, email, referralCode, tasksEnabled, membershipStatus, membershipPlan, membershipStartDate, createdAt, tasksCompleted, balance, isActive', { count: 'exact' })
+      .order('membershipStatus', { ascending: false })
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limit - 1);
 
+    // Apply filters
     if (search) {
-      whereClause.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { referralCode: { contains: search, mode: 'insensitive' } }
-      ]
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,referralCode.ilike.%${search}%`);
     }
 
     if (status === 'enabled') {
-      whereClause.tasksEnabled = true
+      query = query.eq('tasksEnabled', true);
     } else if (status === 'disabled') {
-      whereClause.tasksEnabled = false
+      query = query.eq('tasksEnabled', false);
     } else if (status === 'active') {
-      whereClause.membershipStatus = 'ACTIVE'
+      query = query.eq('membershipStatus', 'ACTIVE');
     } else if (status === 'inactive') {
-      whereClause.membershipStatus = 'INACTIVE'
+      query = query.eq('membershipStatus', 'INACTIVE');
     }
 
-    // Get users with task status
-    const [users, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          referralCode: true,
-          tasksEnabled: true,
-          membershipStatus: true,
-          membershipPlan: true,
-          membershipStartDate: true,
-          createdAt: true,
-          tasksCompleted: true,
-          balance: true,
-          isActive: true
-        },
-        orderBy: [
-          { membershipStatus: 'desc' },
-          { createdAt: 'desc' }
-        ],
-        skip,
-        take: limit
-      }),
-      prisma.user.count({ where: whereClause })
-    ])
+    const { data: users, error: usersError, count: totalCount } = await query;
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to fetch users'
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/session';
-import prisma from '@/lib/prisma';
+import { supabase } from '@/lib/supabase';
 
 export async function PUT(
   request: NextRequest,
@@ -21,12 +21,17 @@ export async function PUT(
     }
 
     // Check if payment confirmation exists
-    const existingConfirmation = await prisma.paymentConfirmation.findUnique({
-      where: { id: params.id },
-      include: { user: true }
-    });
+    const { data: existingConfirmation, error: fetchError } = await supabase
+      .from('payment_confirmations')
+      .select(`
+        *,
+        user:users(*)
+      `)
+      .eq('id', params.id)
+      .single();
 
-    if (!existingConfirmation) {
+    if (fetchError || !existingConfirmation) {
+      console.error('Payment confirmation not found:', fetchError);
       return NextResponse.json({
         success: false,
         error: 'Payment confirmation not found'

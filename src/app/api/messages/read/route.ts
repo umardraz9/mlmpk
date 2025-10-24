@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
 
     if (!session?.user?.id) {
       return NextResponse.json({
@@ -27,41 +26,31 @@ export async function POST(request: NextRequest) {
     const currentUserId = session.user.id
 
     // Mark all messages from userId to currentUserId as read
-    const result = await prisma.message.updateMany({
-      where: {
-        senderId: userId,
-        recipientId: currentUserId,
-        status: {
-          not: 'read'
-        }
-      },
-      data: {
-        status: 'read'
-      }
-    })
+    const { data: messages, error: updateError } = await supabase
+      .from('direct_messages')
+      .update({ status: 'read' })
+      .eq('senderId', userId)
+      .eq('recipientId', currentUserId)
+      .neq('status', 'read')
+      .select()
 
-    // Update conversation unread count
-    await prisma.conversation.updateMany({
-      where: {
-        participants: {
-          every: {
-            userId: {
-              in: [currentUserId, userId]
-            }
-          }
-        }
-      },
-      data: {
-        unreadCount: {
-          decrement: result.count
-        }
-      }
-    })
+    if (updateError) {
+      console.error('Error updating messages:', updateError)
+      return NextResponse.json({
+        error: 'Internal Server Error',
+        message: 'Failed to mark messages as read'
+      }, { status: 500 })
+    }
+
+    const updatedCount = messages?.length || 0
+
+    // Note: Conversation tracking would need a separate conversations table
+    // Skipping conversation update for now as schema doesn't show conversations table
 
     return NextResponse.json({
       success: true,
       message: 'Messages marked as read',
-      updatedCount: result.count
+      updatedCount
     })
 
   } catch (error) {

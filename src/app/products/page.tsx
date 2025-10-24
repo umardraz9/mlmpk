@@ -374,6 +374,12 @@ export default function ProductsPage() {
           newFavorites.delete(product.id);
           showNotification('info', `${product.name} removed from favorites`);
         }
+        // Save to localStorage
+        try {
+          localStorage.setItem('favorites', JSON.stringify(Array.from(newFavorites)));
+        } catch (e) {
+          console.error('Failed to save favorites to localStorage:', e);
+        }
         return newFavorites;
       });
     } catch (error) {
@@ -762,7 +768,7 @@ export default function ProductsPage() {
                   onToggleFavorite={toggleFavorite}
                   onAddToCart={handleAddToCart}
                   onBuyNow={handleBuyNow}
-                  onClick={(product) => router.push(`/products/${product.slug || product.id}`)}
+                  onClick={(product) => router.push(`/products/${product.id}`)}
                   fallbackImage={fallbackImage}
                 />
               ))}

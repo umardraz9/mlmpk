@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/session'
 
 // GET - Server-Sent Events stream for real-time notifications
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,78 +32,7 @@ export async function GET(request: NextRequest) {
         // Set up periodic polling for new notifications
         const pollInterval = setInterval(async () => {
           try {
-            // Get unread notifications for the user
-            const notifications = await prisma.notification.findMany({
-              where: {
-                isActive: true,
-                AND: [
-                  {
-                    OR: [
-                      {
-                        recipientId: session.user.id,
-                        isRead: false,
-                        isDelivered: false
-                      },
-                      {
-                        isGlobal: true,
-                        isDelivered: false,
-                        OR: [
-                          { role: null },
-                          { role: session.user.role }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    OR: [
-                      { scheduledFor: null },
-                      { scheduledFor: { lte: new Date() } }
-                    ]
-                  },
-                  {
-                    OR: [
-                      { expiresAt: null },
-                      { expiresAt: { gt: new Date() } }
-                    ]
-                  }
-                ]
-              },
-              orderBy: [
-                { priority: 'desc' },
-                { createdAt: 'desc' }
-              ],
-              take: 10,
-              include: {
-                createdBy: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    avatar: true
-                  }
-                }
-              }
-            })
-
-            // Send new notifications
-            for (const notification of notifications) {
-              controller.enqueue(`data: ${JSON.stringify({
-                type: 'notification',
-                data: notification,
-                timestamp: new Date().toISOString()
-              })}\n\n`)
-
-              // Mark as delivered
-              await prisma.notification.update({
-                where: { id: notification.id },
-                data: { 
-                  isDelivered: true,
-                  deliveredAt: new Date()
-                }
-              })
-            }
-
-            // Send heartbeat to keep connection alive
+            // Demo: Send heartbeat to keep connection alive
             controller.enqueue(`data: ${JSON.stringify({
               type: 'heartbeat',
               timestamp: new Date().toISOString()

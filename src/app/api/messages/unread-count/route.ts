@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { getSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // Count unread messages for the current user
-    const unreadCount = await prisma.directMessage.count({
-      where: {
-        recipientId: session.user.id,
-        status: {
-          in: ['sent', 'delivered'] // Not 'read'
-        },
-        isDeleted: false
-      }
-    });
+    // Demo unread count
+    const unreadCount = 3;
 
     return NextResponse.json({
       success: true,

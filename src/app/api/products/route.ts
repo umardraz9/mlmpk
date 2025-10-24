@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
         stock: product.quantity,
         rating: product.rating || 4.5,
         reviewCount: product.reviewCount || 0,
-        category: product.categoryId
+        // Return category name from joined data, fallback to categoryId
+        category: (product as any).category?.name || product.categoryId || 'Uncategorized'
       })),
       pagination: {
         page: result.page,

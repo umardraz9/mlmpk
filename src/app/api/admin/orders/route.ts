@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
 
 // GET - List orders with search and filters
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
     
     if (!session?.user?.isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,89 +13,53 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
-    const status = searchParams.get('status') || ''
-    const paymentStatus = searchParams.get('paymentStatus') || ''
-    const dateFrom = searchParams.get('dateFrom')
-    const dateTo = searchParams.get('dateTo')
+    const orderStatus = searchParams.get('status') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
-    const skip = (page - 1) * limit
+    const from = (page - 1) * limit
+    const to = from + limit - 1
 
-    // Build where clause
-    const where: any = {}
-    
+    // Fetch orders from Supabase with user details
+    let query = supabase
+      .from('orders')
+      .select('*, order_items(*, product:products(*)), user:users(id, name, email, phone)', { count: 'exact' })
+      .order('createdAt', { ascending: false })
+
+    if (orderStatus) {
+      query = query.eq('status', orderStatus)
+    }
+
     if (search) {
-      where.OR = [
-        { orderNumber: { contains: search } },
-        { user: { 
-          OR: [
-            { name: { contains: search } },
-            { email: { contains: search } },
-            { username: { contains: search } }
-          ]
-        }},
-        { trackingNumber: { contains: search } },
-        { city: { contains: search } }
-      ]
-    }
-    
-    if (status) {
-      where.status = status
-    }
-    
-    if (paymentStatus) {
-      where.paymentStatus = paymentStatus
+      // Search by order number, user email, user name, or city
+      query = query.or(`orderNumber.ilike.%${search}%,city.ilike.%${search}%,user.email.ilike.%${search}%,user.name.ilike.%${search}%`)
     }
 
-    if (dateFrom || dateTo) {
-      where.createdAt = {}
-      if (dateFrom) {
-        where.createdAt.gte = new Date(dateFrom)
-      }
-      if (dateTo) {
-        where.createdAt.lte = new Date(dateTo + 'T23:59:59.999Z')
-      }
+    // Apply pagination after filtering
+    query = query.range(from, to)
+
+    const { data: orders, error: ordersError, count: total } = await query
+
+    if (ordersError) {
+      console.error('Error fetching orders:', ordersError)
+      return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
     }
 
-    // Get orders with pagination
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              avatar: true,
-              phone: true
-            }
-          }
-        }
-      }),
-      prisma.order.count({ where })
-    ])
-
-    // Parse items JSON for each order
-    const ordersWithParsedItems = orders.map(order => ({
+    // Transform orders to match expected format
+    const ordersWithItems = (orders || []).map(order => ({
       ...order,
-      items: JSON.parse(order.items || '[]')
+      items: order.order_items || []
     }))
 
     // Get order analytics
     const analytics = await getOrderAnalytics()
 
     return NextResponse.json({
-      orders: ordersWithParsedItems,
+      orders: ordersWithItems,
       pagination: {
-        total,
+        total: total || 0,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil((total || 0) / limit)
       },
       analytics
     })
@@ -108,97 +71,73 @@ export async function GET(request: NextRequest) {
 
 // Helper function to get order analytics
 async function getOrderAnalytics() {
-  const [
-    totalOrders,
-    pendingOrders,
-    completedOrders,
-    revenueStats,
-    monthlyStats,
-    topCustomers,
-    recentOrders
-  ] = await Promise.all([
-    prisma.order.count(),
-    prisma.order.count({ where: { status: 'PENDING' } }),
-    prisma.order.count({ where: { status: 'COMPLETED' } }),
-    prisma.order.aggregate({
-      _sum: {
-        totalPkr: true,
-        paidAmountPkr: true,
-        voucherUsedPkr: true,
-        shippingPkr: true
-      }
-    }),
-    prisma.order.aggregate({
-      _sum: { totalPkr: true },
-      _count: { id: true },
-      where: {
-        createdAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        }
-      }
-    }),
-    prisma.order.groupBy({
-      by: ['userId'],
-      _count: { id: true },
-      _sum: { totalPkr: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 5
-    }),
-    prisma.order.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            avatar: true
-          }
-        }
-      }
-    })
-  ])
+  try {
+    // Get all orders
+    const { data: allOrders, count: totalOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact' })
 
-  // Get user details for top customers
-  const topCustomersWithDetails = await Promise.all(
-    topCustomers.map(async (customer) => {
-      const user = await prisma.user.findUnique({
-        where: { id: customer.userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          username: true,
-          avatar: true
-        }
-      })
-      return {
-        ...customer,
-        user
-      }
-    })
-  )
+    // Get pending orders
+    const { count: pendingOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact' })
+      .eq('status', 'PENDING')
 
-  // Parse items for recent orders
-  const recentOrdersWithItems = recentOrders.map(order => ({
-    ...order,
-    items: JSON.parse(order.items || '[]')
-  }))
+    // Get completed orders
+    const { count: completedOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact' })
+      .eq('status', 'COMPLETED')
 
-  return {
-    totalOrders,
-    pendingOrders,
-    completedOrders,
-    cancelledOrders: totalOrders - completedOrders - pendingOrders,
-    totalRevenue: revenueStats._sum.totalPkr || 0,
-    paidAmount: revenueStats._sum.paidAmountPkr || 0,
-    voucherUsed: revenueStats._sum.voucherUsedPkr || 0,
-    shippingRevenue: revenueStats._sum.shippingPkr || 0,
-    monthlyRevenue: monthlyStats._sum.totalPkr || 0,
-    monthlyOrders: monthlyStats._count.id || 0,
-    topCustomers: topCustomersWithDetails,
-    recentOrders: recentOrdersWithItems
+    // Calculate revenue
+    let totalRevenue = 0
+    let paidAmount = 0
+    let voucherUsed = 0
+    let shippingRevenue = 0
+
+    if (allOrders) {
+      totalRevenue = allOrders.reduce((sum, order) => sum + (order.totalPkr || 0), 0)
+      paidAmount = allOrders.reduce((sum, order) => sum + (order.totalPkr || 0), 0)
+      voucherUsed = allOrders.reduce((sum, order) => sum + (order.voucherUsedPkr || 0), 0)
+      shippingRevenue = allOrders.reduce((sum, order) => sum + (order.shippingPkr || 0), 0)
+    }
+
+    // Get recent orders
+    const { data: recentOrders } = await supabase
+      .from('orders')
+      .select('*')
+      .order('createdAt', { ascending: false })
+      .limit(5)
+
+    return {
+      totalOrders: totalOrders || 0,
+      pendingOrders: pendingOrders || 0,
+      completedOrders: completedOrders || 0,
+      cancelledOrders: (totalOrders || 0) - (completedOrders || 0) - (pendingOrders || 0),
+      totalRevenue,
+      paidAmount,
+      voucherUsed,
+      shippingRevenue,
+      monthlyRevenue: totalRevenue,
+      monthlyOrders: totalOrders || 0,
+      topCustomers: [],
+      recentOrders: recentOrders || []
+    }
+  } catch (error) {
+    console.error('Error getting analytics:', error)
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      completedOrders: 0,
+      cancelledOrders: 0,
+      totalRevenue: 0,
+      paidAmount: 0,
+      voucherUsed: 0,
+      shippingRevenue: 0,
+      monthlyRevenue: 0,
+      monthlyOrders: 0,
+      topCustomers: [],
+      recentOrders: []
+    }
   }
-} 
+}

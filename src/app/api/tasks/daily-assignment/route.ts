@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { requireSession } from '@/lib/session'
 
 export async function POST(request: NextRequest) {
@@ -13,25 +13,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user with membership plan
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        membershipPlan: true,
-        membershipStatus: true,
-        tasksEnabled: true,
-        lastTaskCompletionDate: true,
-        dailyTasksCompleted: true,
-        earningsContinueUntil: true,
-        membershipStartDate: true
-      }
-    })
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, membershipPlan, membershipStatus, tasksEnabled, lastTaskCompletionDate, dailyTasksCompleted, earningsContinueUntil, membershipStartDate')
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user) {
+    if (userError || !user) {
+      console.error('User not found:', userError);
       return NextResponse.json({ 
         success: false, 
         error: 'User not found' 
-      }, { status: 404 })
+      }, { status: 404 });
     }
 
     // Check if user has active membership
@@ -51,15 +44,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get membership plan details
-    const plan = await prisma.membershipPlan.findUnique({
-      where: { name: user.membershipPlan! }
-    })
+    const { data: plan, error: planError } = await supabase
+      .from('membership_plans')
+      .select('*')
+      .eq('name', user.membershipPlan!)
+      .single();
 
-    if (!plan) {
+    if (planError || !plan) {
+      console.error('Invalid membership plan:', planError);
       return NextResponse.json({ 
         success: false, 
         error: 'Invalid membership plan' 
-      }, { status: 400 })
+      }, { status: 400 });
     }
 
     // Check earning continuation (30 days without referrals, then requires ≥1 referral)
@@ -71,9 +67,10 @@ export async function POST(request: NextRequest) {
     // If more than 30 days have passed since membership start
     if (now > thirtyDaysAfterStart) {
       // Check if user has referrals
-      const referralCount = await prisma.user.count({
-        where: { sponsorId: user.id }
-      })
+      const { count: referralCount } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('sponsorId', user.id);
 
       if (referralCount === 0) {
         return NextResponse.json({ 
@@ -83,10 +80,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Check advanced referral rules for earning continuation
-      const referrals = await prisma.user.findMany({
-        where: { sponsorId: user.id },
-        select: { membershipPlan: true }
-      })
+      const { data: referrals } = await supabase
+        .from('users')
+        .select('membershipPlan')
+        .eq('sponsorId', user.id);
 
       let canContinue = false
       const userPlan = user.membershipPlan
@@ -116,28 +113,25 @@ export async function POST(request: NextRequest) {
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const existingTasks = await prisma.taskCompletion.findMany({
-      where: {
-        userId: user.id,
-        createdAt: {
-          gte: today,
-          lt: tomorrow
-        }
-      },
-      include: {
-        task: true
-      }
-    })
+    const { data: existingTasks } = await supabase
+      .from('task_completions')
+      .select(`
+        *,
+        task:tasks(*)
+      `)
+      .eq('userId', user.id)
+      .gte('createdAt', today.toISOString())
+      .lt('createdAt', tomorrow.toISOString());
 
     // If user already has 5 tasks for today, return existing tasks
     const tasksPerDay = 5 // Always 5 tasks per day
-    if (existingTasks.length >= tasksPerDay) {
+    if ((existingTasks || []).length >= tasksPerDay) {
       const perTaskReward = Math.round(plan.dailyTaskEarning / tasksPerDay)
       
       return NextResponse.json({ 
         success: true, 
         message: 'Daily tasks already assigned',
-        tasks: existingTasks.map(tc => ({
+        tasks: (existingTasks || []).map((tc: any) => ({
           id: tc.task.id,
           completionId: tc.id,
           title: tc.task.title,
@@ -158,21 +152,18 @@ export async function POST(request: NextRequest) {
     const perTaskReward = Math.round(plan.dailyTaskEarning / tasksPerDay)
 
     // Get available active tasks
-    const availableTasks = await prisma.task.findMany({
-      where: {
-        status: 'ACTIVE',
-        type: {
-          in: ['DAILY', 'SIMPLE', 'BASIC', 'CONTENT_ENGAGEMENT', 'VIDEO_WATCH']
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: tasksPerDay
-    })
+    const { data: availableTasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('status', 'ACTIVE')
+      .in('type', ['DAILY', 'SIMPLE', 'BASIC', 'CONTENT_ENGAGEMENT', 'VIDEO_WATCH'])
+      .order('createdAt', { ascending: false })
+      .limit(tasksPerDay);
+
+    const tasksList = availableTasks || [];
 
     // If no tasks available, create default task templates
-    if (availableTasks.length === 0) {
+    if (tasksList.length === 0) {
       const defaultTasks = [
         {
           title: 'Daily Check-in Task',
@@ -213,34 +204,38 @@ export async function POST(request: NextRequest) {
 
       // Create default tasks
       for (const taskData of defaultTasks) {
-        const task = await prisma.task.create({
-          data: {
+        const { data: task } = await supabase
+          .from('tasks')
+          .insert({
             ...taskData,
             difficulty: 'EASY',
             reward: perTaskReward,
             status: 'ACTIVE',
             icon: '⚡',
             color: '#10b981'
-          }
-        })
-        availableTasks.push(task)
+          })
+          .select()
+          .single();
+        if (task) tasksList.push(task);
       }
     }
 
     // Assign 5 tasks to user
     const taskAssignments = []
     for (let i = 0; i < tasksPerDay; i++) {
-      const task = availableTasks[i % availableTasks.length] // Cycle through available tasks
+      const task = tasksList[i % tasksList.length] // Cycle through available tasks
       
-      const taskCompletion = await prisma.taskCompletion.create({
-        data: {
+      const { data: taskCompletion } = await supabase
+        .from('task_completions')
+        .insert({
           userId: user.id,
           taskId: task.id,
           status: 'PENDING',
           progress: 0,
           reward: perTaskReward
-        }
-      })
+        })
+        .select()
+        .single();
 
       taskAssignments.push({
         id: task.id,
@@ -287,27 +282,29 @@ export async function GET(request: NextRequest) {
       }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        membershipPlan: true,
-        membershipStatus: true,
-        tasksEnabled: true,
-        membershipStartDate: true
-      }
-    })
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, membershipPlan, membershipStatus, tasksEnabled, membershipStartDate')
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user) {
+    if (userError || !user) {
+      console.error('User not found:', userError);
       return NextResponse.json({ 
         success: false, 
         error: 'User not found' 
-      }, { status: 404 })
+      }, { status: 404 });
     }
 
-    const plan = user.membershipPlan ? await prisma.membershipPlan.findUnique({
-      where: { name: user.membershipPlan }
-    }) : null
+    let plan = null;
+    if (user.membershipPlan) {
+      const { data } = await supabase
+        .from('membership_plans')
+        .select('*')
+        .eq('name', user.membershipPlan)
+        .single();
+      plan = data;
+    }
 
     // Get today's tasks
     const today = new Date()
@@ -315,25 +312,21 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const todaysTasks = await prisma.taskCompletion.findMany({
-      where: {
-        userId: user.id,
-        createdAt: {
-          gte: today,
-          lt: tomorrow
-        }
-      },
-      include: {
-        task: true
-      },
-      orderBy: {
-        createdAt: 'asc'
-      }
-    })
+    const { data: todaysTasks } = await supabase
+      .from('task_completions')
+      .select(`
+        *,
+        task:tasks(*)
+      `)
+      .eq('userId', user.id)
+      .gte('createdAt', today.toISOString())
+      .lt('createdAt', tomorrow.toISOString())
+      .order('createdAt', { ascending: true });
 
     const tasksPerDay = 5
-    const completedTasks = todaysTasks.filter(tc => tc.status === 'COMPLETED').length
-    const pendingTasks = todaysTasks.filter(tc => tc.status === 'PENDING').length
+    const tasksArray = todaysTasks || [];
+    const completedTasks = tasksArray.filter((tc: any) => tc.status === 'COMPLETED').length
+    const pendingTasks = tasksArray.filter((tc: any) => tc.status === 'PENDING').length
     const perTaskReward = plan ? Math.round(plan.dailyTaskEarning / tasksPerDay) : 0
 
     // Calculate active days
@@ -356,9 +349,10 @@ export async function GET(request: NextRequest) {
       thirtyDaysAfterStart.setDate(thirtyDaysAfterStart.getDate() + 30)
       
       if (now > thirtyDaysAfterStart) {
-        const referralCount = await prisma.user.count({
-          where: { sponsorId: user.id }
-        })
+        const { count: referralCount } = await supabase
+          .from('users')
+          .select('*', { count: 'exact', head: true })
+          .eq('sponsorId', user.id);
         
         if (referralCount === 0) {
           canEarn = false
@@ -371,10 +365,10 @@ export async function GET(request: NextRequest) {
       success: true,
       status: {
         canEarnToday: canEarn,
-        hasTasksAssigned: todaysTasks.length > 0,
+        hasTasksAssigned: tasksArray.length > 0,
         completedTasks,
         pendingTasks,
-        totalTasksToday: todaysTasks.length,
+        totalTasksToday: tasksArray.length,
         dailyEarningAmount: plan?.dailyTaskEarning || 0,
         perTaskReward,
         membershipPlan: user.membershipPlan,
@@ -382,7 +376,7 @@ export async function GET(request: NextRequest) {
         activeDays,
         earningMessage
       },
-      tasks: todaysTasks.map(tc => ({
+      tasks: tasksArray.map((tc: any) => ({
         id: tc.task.id,
         completionId: tc.id,
         title: tc.task.title,

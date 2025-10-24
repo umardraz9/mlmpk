@@ -51,12 +51,18 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [notification, setNotification] = useState<Notification | null>(null);
   const fallbackImage = 'https://placehold.co/600x600?text=No+Image';
+
+  // Fix hydration by ensuring client-side only rendering
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load product data
   useEffect(() => {
@@ -257,7 +263,8 @@ export default function ProductDetailPage() {
     }
   };
 
-  if (loading) {
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

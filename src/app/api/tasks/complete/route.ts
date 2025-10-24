@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import { getSession } from '@/lib/session'
 import { validateTaskAccess } from '@/lib/task-country-middleware'
 
 // Disable CSRF protection for this API route
@@ -25,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (countryBlockResponse) {
       return countryBlockResponse
     }
-    const session = await getServerSession(authOptions)
+    const session = await getSession()
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { 
@@ -52,74 +51,91 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Check if task was already completed by this user
-      const existingCompletion = await tx.taskCompletion.findFirst({
-        where: {
-          userId: session.user.id,
-          taskId: taskId
-        }
+    // Note: Supabase doesn't support transactions, using sequential operations
+    // Check if task was already completed by this user
+    const { data: existingCompletion } = await supabase
+      .from('task_completions')
+      .select('id')
+      .eq('userId', session.user.id)
+      .eq('taskId', taskId)
+      .single();
+
+    if (existingCompletion) {
+      throw new Error('Task already completed');
+    }
+
+    // Get user's current balance
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', session.user.id)
+      .single();
+
+    if (userError || !user) {
+      throw new Error('User not found');
+    }
+
+    // Create task completion record
+    const { data: taskCompletion, error: completionError } = await supabase
+      .from('task_completions')
+      .insert({
+        userId: session.user.id,
+        taskId: taskId,
+        reward: reward,
+        trackingData: JSON.stringify(trackingData),
+        completedAt: new Date().toISOString(),
+        status: 'COMPLETED'
       })
+      .select()
+      .single();
 
-      if (existingCompletion) {
-        throw new Error('Task already completed')
-      }
+    if (completionError || !taskCompletion) {
+      console.error('Error creating task completion:', completionError);
+      throw new Error('Failed to create task completion');
+    }
 
-      // Get user's current balance
-      const user = await tx.user.findUnique({
-        where: { id: session.user.id },
-        select: { balance: true }
-      })
+    // Update user balance
+    const newBalance = user.balance + reward;
+    const { error: balanceError } = await supabase
+      .from('users')
+      .update({ balance: newBalance })
+      .eq('id', session.user.id);
 
-      if (!user) {
-        throw new Error('User not found')
-      }
+    if (balanceError) {
+      console.error('Error updating balance:', balanceError);
+      // Rollback: delete task completion
+      await supabase.from('task_completions').delete().eq('id', taskCompletion.id);
+      throw new Error('Failed to update balance');
+    }
 
-      // Create task completion record
-      const taskCompletion = await tx.taskCompletion.create({
-        data: {
-          userId: session.user.id,
+    // Create transaction record
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        userId: session.user.id,
+        type: 'TASK_REWARD',
+        amount: reward,
+        description: `Task completion reward - Task ID: ${taskId}`,
+        status: 'COMPLETED',
+        metadata: JSON.stringify({
           taskId: taskId,
-          reward: reward,
-          trackingData: JSON.stringify(trackingData),
-          completedAt: new Date(),
-          status: 'COMPLETED'
-        }
+          taskCompletionId: taskCompletion.id,
+          trackingData: trackingData
+        })
       })
+      .select()
+      .single();
 
-      // Update user balance
-      const updatedUser = await tx.user.update({
-        where: { id: session.user.id },
-        data: {
-          balance: {
-            increment: reward
-          }
-        }
-      })
+    if (txError) {
+      console.error('Error creating transaction:', txError);
+      // Continue even if transaction record fails
+    }
 
-      // Create transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          userId: session.user.id,
-          type: 'TASK_REWARD',
-          amount: reward,
-          description: `Task completion reward - Task ID: ${taskId}`,
-          status: 'COMPLETED',
-          metadata: JSON.stringify({
-            taskId: taskId,
-            taskCompletionId: taskCompletion.id,
-            trackingData: trackingData
-          })
-        }
-      })
-
-      return {
-        taskCompletion,
-        transaction,
-        newBalance: updatedUser.balance
-      }
-    })
+    const result = {
+      taskCompletion,
+      transaction,
+      newBalance
+    }
 
     return NextResponse.json({
       success: true,

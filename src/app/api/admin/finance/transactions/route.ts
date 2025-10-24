@@ -1,56 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
-import { requireAdmin } from '@/lib/session'
+import { getSession } from '@/lib/session'
+import { supabase } from '@/lib/supabase'
 
 // GET /api/admin/finance/transactions
 // Query params: type, status, search, limit, offset
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin()
+    const session = await getSession()
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || undefined
-    const status = searchParams.get('status') || undefined
-    const search = searchParams.get('search') || undefined
+    const type = searchParams.get('type')
+    const status = searchParams.get('status')
     const limit = Number(searchParams.get('limit') || 100)
     const offset = Number(searchParams.get('offset') || 0)
 
-    const where: Record<string, unknown> = {}
-    // Map UI type filter to DB values
+    // Build Supabase query
+    let query = supabase
+      .from('transactions')
+      .select('*, user:users(id, name, email)', { count: 'exact' })
+      .order('createdAt', { ascending: false })
+      .range(offset, offset + limit - 1)
+
     if (type && type !== 'all') {
-      const typeUpper = type.toUpperCase()
-      if (typeUpper === 'REFUND') {
-        ;(where as any).OR = [
-          { type: 'REFUND' },
-          { type: 'WITHDRAWAL_REFUND' },
-        ]
-      } else {
-        ;(where as any).type = typeUpper
-      }
-    }
-    if (status && status !== 'all') (where as any).status = status.toUpperCase()
-
-    if (search) {
-      where.OR = [
-        { description: { contains: search, mode: 'insensitive' as const } },
-        { user: { is: { name: { contains: search, mode: 'insensitive' as const } } } },
-        { user: { is: { email: { contains: search, mode: 'insensitive' as const } } } },
-      ]
+      query = query.eq('type', type.toUpperCase())
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where: where as any,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-      },
-      take: limit,
-      skip: offset,
-    })
+    if (status && status !== 'all') {
+      query = query.eq('status', status.toUpperCase())
+    }
 
-    const mapped = transactions.map(t => ({
+    const { data: transactions, error } = await query
+
+    if (error) {
+      console.error('Error fetching transactions:', error)
+      return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 })
+    }
+
+    const mapped = (transactions || []).map(t => ({
       id: t.id,
-      type: (t.type || '').toLowerCase().replace('withdrawal_refund', 'refund'),
+      type: (t.type || '').toLowerCase(),
       amount: t.amount,
       status: (t.status || '').toLowerCase(),
       userId: t.userId,
