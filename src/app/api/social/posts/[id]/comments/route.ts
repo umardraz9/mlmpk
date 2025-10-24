@@ -126,10 +126,6 @@ export async function POST(
     }, { status: 500 })
   }
 }
-    }
-
-    // Determine sort order
-    const orderBy = sortBy === 'oldest' ? { createdAt: 'asc' as const } : { createdAt: 'desc' as const }
 
     // Fetch comments with comprehensive data
     const [comments, total] = await Promise.all([
